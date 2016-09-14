@@ -87,9 +87,7 @@ class PrevizDialog(gui.GeDialog):
         self.commands = {
             API_TOKEN_EDIT:         self.OnAPITokenChanged,
             API_TOKEN_BUTTON:       self.OnAPITokenButtonPressed,
-            PROJECT_SELECT:         self.OnProjectComboBoxChanged,
             PROJECT_REFRESH_BUTTON: self.OnProjectRefreshButtonPressed,
-            PROJECT_NEW_EDIT:       self.OnProjectNewEditChanged,
             PROJECT_NEW_BUTTON:     self.OnProjectNewButtonPressed,
             PUBLISH_BUTTON:         self.OnPublishButtonPressed
         }
@@ -181,7 +179,9 @@ class PrevizDialog(gui.GeDialog):
         self.RefreshUI()
 
         # Execute command
-        self.commands[id](msg)
+        command = self.commands.get(id)
+        if command is not None:
+            command(msg)
 
         # If a command modify a field, no event are sent
         # Forcing UI refresh again here
@@ -198,9 +198,6 @@ class PrevizDialog(gui.GeDialog):
         print 'PrevizDialog.OnAPITokenButtonPressed', msg
         webbrowser.open('https://previz.online/settings#/api')
 
-    def OnProjectComboBoxChanged(self, msg):
-        print 'PrevizDialog.OnProjectComboBoxChanged', msg
-
     def OnProjectRefreshButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectRefreshButtonPressed', msg
         self.RefreshProjectComboBox()
@@ -213,10 +210,6 @@ class PrevizDialog(gui.GeDialog):
             self.AddChild(PROJECT_SELECT,
                           project['id'],
                           project['title'])
-
-    def OnProjectNewEditChanged(self, msg):
-        print 'PrevizDialog.OnProjectNewEditChanged', msg
-        self.RefreshProjectNewButton()
 
     def OnProjectNewButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectNewButtonPressed', msg
