@@ -97,7 +97,7 @@ class PrevizDialog(gui.GeDialog):
     @property
     def previz_project(self):
         api_root = 'https://previz.online/api'
-        api_token = self.settings[SETTINGS_API_TOKEN]
+        api_token = self.GetString(API_TOKEN_EDIT)
         return previz.PrevizProject(api_root, api_token)
 
     def InitValues(self):
@@ -124,8 +124,10 @@ class PrevizDialog(gui.GeDialog):
         self.GroupEnd()
 
         self.AddButton(id=PUBLISH_BUTTON,
-                       flags=c4d.BFH_CENTER | c4d.BFV_BOTTOM,
+                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
                        name='Publish to Previz')
+
+        self.RefreshUI()
 
         return True
 
@@ -164,7 +166,6 @@ class PrevizDialog(gui.GeDialog):
         self.AddButton(id=PROJECT_NEW_BUTTON,
                        flags=c4d.BFH_FIT,
                        name='New')
-        self.RefreshProjectNewButton()
 
     def CoreMessage(self, id, msg):
         if id != __plugin_id__:
@@ -175,7 +176,17 @@ class PrevizDialog(gui.GeDialog):
 
     def Command(self, id, msg):
         print 'PrevizDialog.Command', id, msg
+
+        # Refresh the UI so the user has immediate feedback
+        self.RefreshUI()
+
+        # Execute command
         self.commands[id](msg)
+
+        # If a command modify a field, no event are sent
+        # Forcing UI refresh again here
+        self.RefreshUI()
+
         return True
 
     def OnAPITokenChanged(self, msg):
@@ -207,11 +218,6 @@ class PrevizDialog(gui.GeDialog):
         print 'PrevizDialog.OnProjectNewEditChanged', msg
         self.RefreshProjectNewButton()
 
-    def RefreshProjectNewButton(self):
-        project_name = self.GetString(PROJECT_NEW_EDIT)
-        project_name_is_valid = len(project_name) > 0
-        self.Enable(PROJECT_NEW_BUTTON, project_name_is_valid)
-
     def OnProjectNewButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectNewButtonPressed', msg
 
@@ -233,6 +239,30 @@ class PrevizDialog(gui.GeDialog):
 
     def OnPublishButtonPressed(self, msg):
         print 'PrevizDialog.OnPublishButtonPressed', msg
+
+    def RefreshUI(self):
+        self.RefreshProjectNewButton()
+        self.RefreshPublishButton()
+
+    def RefreshProjectNewButton(self):
+        project_name = self.GetString(PROJECT_NEW_EDIT)
+        project_name_is_valid = len(project_name) > 0
+        self.Enable(PROJECT_NEW_BUTTON, project_name_is_valid)
+
+    def RefreshPublishButton(self):
+        print 'PrevizDialog.RefreshPublishButton'
+
+        # Token
+        api_token = self.GetString(API_TOKEN_EDIT)
+        is_api_token_valid = len(api_token) > 0
+
+        # Project
+        project_id = self.GetInt32(PROJECT_SELECT)
+        is_project_id_valid = project_id > 1
+
+        # Enable / Disable
+        self.Enable(PUBLISH_BUTTON,
+                    is_api_token_valid and is_project_id_valid)
 
 
 class PrevizCommandData(plugins.CommandData):
