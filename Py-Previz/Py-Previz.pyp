@@ -3,10 +3,12 @@ import os
 import os.path
 import shelve
 import sys
+import tempfile
+import time
 import webbrowser
 
 import c4d
-from c4d import gui, plugins, storage
+from c4d import gui, plugins, storage, threading
 
 # Add locale module path
 local_modules_path = os.path.join(os.path.dirname(__file__),
@@ -42,6 +44,8 @@ PROJECT_NEW_EDIT   = next(ids)
 PROJECT_NEW_BUTTON = next(ids)
 
 PUBLISH_BUTTON = next(ids)
+
+MSG_PUBLISH_DONE = __plugin_id__
 
 SETTINGS_API_TOKEN = 'api_token'
 
@@ -166,10 +170,11 @@ class PrevizDialog(gui.GeDialog):
                        name='New')
 
     def CoreMessage(self, id, msg):
-        if id != __plugin_id__:
+        if id != MSG_PUBLISH_DONE:
             return gui.GeDialog.CoreMessage(self, id, msg)
 
         print 'PrevizDialog.CoreMessage', id, id == __plugin_id__
+        self.RefreshUI()
         return True
 
     def Command(self, id, msg):
@@ -233,6 +238,25 @@ class PrevizDialog(gui.GeDialog):
     def OnPublishButtonPressed(self, msg):
         print 'PrevizDialog.OnPublishButtonPressed', msg
 
+        # Write JSON to disk
+        fp, path = tempfile.mkstemp(prefix='previz-',
+                                    suffix='.json',
+                                    text=True)
+        fp = os.fdopen(fp)
+        #previz.export(BuildPrevizScene(), fp)
+        fp.close()
+
+        # Upload JSON to Previz in a thread
+        api_root = 'https://previz.online/api'
+        api_token = self.GetString(API_TOKEN_EDIT)
+        project_id = self.GetInt32(PROJECT_SELECT)
+
+        global publisher_thread
+        publisher_thread = PublisherThread(api_root, api_token, project_id, path)
+        publisher_thread.Start()
+
+        # Notice user of success
+
     def RefreshUI(self):
         self.RefreshProjectNewButton()
         self.RefreshPublishButton()
@@ -253,9 +277,14 @@ class PrevizDialog(gui.GeDialog):
         project_id = self.GetInt32(PROJECT_SELECT)
         is_project_id_valid = project_id > 1
 
+        # Publisher is running
+        is_publisher_thread_running = publisher_thread is not None and publisher_thread.IsRunning()
+
         # Enable / Disable
         self.Enable(PUBLISH_BUTTON,
-                    is_api_token_valid and is_project_id_valid)
+                    is_api_token_valid \
+                    and is_project_id_valid \
+                    and not is_publisher_thread_running)
 
 
 class PrevizCommandData(plugins.CommandData):
@@ -281,6 +310,54 @@ class PrevizCommandData(plugins.CommandData):
         if self.dialog is None:
             self.dialog = PrevizDialog()
 
+
+def BuildPrevizScene():
+    return {}
+
+
+class PublisherThread(threading.C4DThread):
+    def __init__(self, api_root, api_token, project_id, path):
+        self.api_root = api_root
+        self.api_token = api_token
+        self.project_id = project_id
+        self.path = path
+
+    def Main(self):
+        p = previz.PrevizProject(self.api_root,
+                                 self.api_token,
+                                 self.project_id)
+        with open(self.path, 'rb') as fp:
+            print 'START upload'
+            p.update_scene(fp)
+            time.sleep(3)
+            print 'STOP upload'
+            c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
+
+publisher_thread = None
+
+def make_callback(text):
+    def func(data):
+        print text
+    return func
+
+plugin_messages = {
+    c4d.C4DPL_STARTACTIVITY:       make_callback('C4DPL_STARTACTIVITY'),
+    c4d.C4DPL_ENDACTIVITY:         make_callback('C4DPL_ENDACTIVITY'),
+    c4d.C4DPL_RELOADPYTHONPLUGINS: make_callback('C4DPL_RELOADPYTHONPLUGINS'),
+    c4d.C4DPL_COMMANDLINEARGS:     make_callback('C4DPL_COMMANDLINEARGS'),
+    c4d.C4DPL_BUILDMENU:           make_callback('C4DPL_BUILDMENU'),
+    c4d.C4DPL_ENDPROGRAM:          make_callback('C4DPL_ENDPROGRAM'),
+    c4d.C4DPL_PROGRAM_STARTED:     make_callback('C4DPL_PROGRAM_STARTED')
+}
+
+
+def PluginMessage(id, data):
+    cb = plugin_messages.get(id)
+    print 'PluginMessage', id, data, cb
+    if cb is None:
+        return False
+    cb(data)
+    return True
 
 if __name__ == '__main__':
     print 'Registering PrevizCommandData'
