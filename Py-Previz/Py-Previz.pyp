@@ -91,6 +91,12 @@ class PrevizDialog(gui.GeDialog):
             PUBLISH_BUTTON:         self.OnPublishButtonPressed
         }
 
+    @property
+    def previz_project(self):
+        api_root = 'https://previz.online/api'
+        api_token = self.settings[SETTINGS_API_TOKEN]
+        return previz.PrevizProject(api_root, api_token)
+
     def InitValues(self):
         print 'PrevizDialog.InitValues'
 
@@ -182,6 +188,13 @@ class PrevizDialog(gui.GeDialog):
 
     def OnProjectRefreshButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectRefreshButtonPressed', msg
+        projects = sorted(self.previz_project.projects(),
+                          key= lambda x: x['title'])
+        self.FreeChildren(PROJECT_SELECT)
+        for project in projects:
+            self.AddChild(PROJECT_SELECT,
+                          project['id'],
+                          project['title'])
 
     def OnProjectNewButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectNewButtonPressed', msg
