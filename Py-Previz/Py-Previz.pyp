@@ -35,9 +35,11 @@ API_TOKEN_BUTTON = next(ids)
 
 PROJECT_LABEL          = next(ids)
 PROJECT_SELECT         = next(ids)
-PROJECT_BUTTON_GROUP   = next(ids)
 PROJECT_REFRESH_BUTTON = next(ids)
-PROJECT_NEW_BUTTON     = next(ids)
+
+PROJECT_NEW_LABEL  = next(ids)
+PROJECT_NEW_EDIT   = next(ids)
+PROJECT_NEW_BUTTON = next(ids)
 
 PUBLISH_BUTTON = next(ids)
 
@@ -87,6 +89,7 @@ class PrevizDialog(gui.GeDialog):
             API_TOKEN_BUTTON:       self.OnAPITokenButtonPressed,
             PROJECT_SELECT:         self.OnProjectComboBoxChanged,
             PROJECT_REFRESH_BUTTON: self.OnProjectRefreshButtonPressed,
+            PROJECT_NEW_EDIT:       self.OnProjectNewEditChanged,
             PROJECT_NEW_BUTTON:     self.OnProjectNewButtonPressed,
             PUBLISH_BUTTON:         self.OnPublishButtonPressed
         }
@@ -116,6 +119,7 @@ class PrevizDialog(gui.GeDialog):
 
         self.CreateAPITokenLine()
         self.CreateProjectLine()
+        self.CreateNewProjectLine()
 
         self.GroupEnd()
 
@@ -145,22 +149,22 @@ class PrevizDialog(gui.GeDialog):
         self.AddComboBox(id=PROJECT_SELECT,
                          flags=c4d.BFH_SCALEFIT)
 
-        self.GroupBegin(id=PROJECT_BUTTON_GROUP,
-                        flags=c4d.BFH_FIT,
-                        cols=2,
-                        rows=1,
-                        title='Project buttons',
-                        groupflags=c4d.BORDER_NONE)
-
         self.AddButton(id=PROJECT_REFRESH_BUTTON,
                        flags=c4d.BFH_FIT,
                        name='Refresh')
 
+    def CreateNewProjectLine(self):
+        self.AddStaticText(id=PROJECT_NEW_LABEL,
+                           flags=c4d.BFH_LEFT,
+                           name='New project')
+
+        self.AddEditText(id=PROJECT_NEW_EDIT,
+                         flags=c4d.BFH_SCALEFIT)
+
         self.AddButton(id=PROJECT_NEW_BUTTON,
                        flags=c4d.BFH_FIT,
                        name='New')
-
-        self.GroupEnd()
+        self.RefreshProjectNewButton()
 
     def CoreMessage(self, id, msg):
         if id != __plugin_id__:
@@ -188,6 +192,9 @@ class PrevizDialog(gui.GeDialog):
 
     def OnProjectRefreshButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectRefreshButtonPressed', msg
+        self.RefreshProjectComboBox()
+
+    def RefreshProjectComboBox(self):
         projects = sorted(self.previz_project.projects(),
                           key= lambda x: x['title'])
         self.FreeChildren(PROJECT_SELECT)
@@ -196,8 +203,33 @@ class PrevizDialog(gui.GeDialog):
                           project['id'],
                           project['title'])
 
+    def OnProjectNewEditChanged(self, msg):
+        print 'PrevizDialog.OnProjectNewEditChanged', msg
+        self.RefreshProjectNewButton()
+
+    def RefreshProjectNewButton(self):
+        project_name = self.GetString(PROJECT_NEW_EDIT)
+        project_name_is_valid = len(project_name) > 0
+        self.Enable(PROJECT_NEW_BUTTON, project_name_is_valid)
+
     def OnProjectNewButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectNewButtonPressed', msg
+
+        # New project
+
+        project_name = self.GetString(PROJECT_NEW_EDIT)
+        project = self.previz_project.new_project(project_name)
+
+        # Clear project name
+        # For some reason SetString doesn't send an event
+
+        self.SetString(PROJECT_NEW_EDIT, '')
+        self.RefreshProjectNewButton()
+
+        # Select new project
+
+        self.RefreshProjectComboBox()
+        self.SetInt32(PROJECT_SELECT, project['id'])
 
     def OnPublishButtonPressed(self, msg):
         print 'PrevizDialog.OnPublishButtonPressed', msg
