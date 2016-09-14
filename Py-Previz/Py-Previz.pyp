@@ -9,7 +9,11 @@ import c4d
 from c4d import gui, plugins, storage
 
 # Add locale module path
-local_modules_path = os.path.join(os.path.dirname(__file__), 'res', 'lib', 'python', 'site-packages')
+local_modules_path = os.path.join(os.path.dirname(__file__),
+                                  'res',
+                                  'lib',
+                                  'python',
+                                  'site-packages')
 sys.path.insert(0, local_modules_path)
 
 import previz
@@ -171,6 +175,7 @@ class PrevizDialog(gui.GeDialog):
 
     def OnAPITokenButtonPressed(self, msg):
         print 'PrevizDialog.OnAPITokenButtonPressed', msg
+        webbrowser.open('https://previz.online/settings#/api')
 
     def OnProjectComboBoxChanged(self, msg):
         print 'PrevizDialog.OnProjectComboBoxChanged', msg
