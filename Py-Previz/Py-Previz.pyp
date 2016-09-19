@@ -45,8 +45,6 @@ PROJECT_NEW_BUTTON = next(ids)
 
 PUBLISH_BUTTON = next(ids)
 
-DEBUG_BUTTON = next(ids)
-
 MSG_PUBLISH_DONE = __plugin_id__
 
 SETTINGS_API_TOKEN = 'api_token'
@@ -95,8 +93,7 @@ class PrevizDialog(gui.GeDialog):
             API_TOKEN_BUTTON:       self.OnAPITokenButtonPressed,
             PROJECT_REFRESH_BUTTON: self.OnProjectRefreshButtonPressed,
             PROJECT_NEW_BUTTON:     self.OnProjectNewButtonPressed,
-            PUBLISH_BUTTON:         self.OnPublishButtonPressed,
-            DEBUG_BUTTON:           self.OnDebugButtonPressed
+            PUBLISH_BUTTON:         self.OnPublishButtonPressed
         }
 
     @property
@@ -131,10 +128,6 @@ class PrevizDialog(gui.GeDialog):
         self.AddButton(id=PUBLISH_BUTTON,
                        flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
                        name='Publish to Previz')
-
-        self.AddButton(id=DEBUG_BUTTON,
-                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
-                       name='Debug')
 
         self.RefreshUI()
 
@@ -241,15 +234,6 @@ class PrevizDialog(gui.GeDialog):
 
         self.RefreshProjectComboBox()
         self.SetInt32(PROJECT_SELECT, project['id'])
-
-    def OnDebugButtonPressed(self, msg):
-        scene = BuildPrevizScene()
-
-        fp, path = tempfile.mkstemp(prefix='previz-',
-                                    suffix='.json',
-                                    text=True)
-        with open('/Users/charles/previz.json', 'w') as fp:
-            previz.export(scene, fp)
 
     def OnPublishButtonPressed(self, msg):
         print 'PrevizDialog.OnPublishButtonPressed', msg
@@ -370,8 +354,6 @@ def parse_faces(obj):
 
     return faces, uvsets
 
-
-
 def get_vertices(obj):
     for v in obj.GetAllPoints():
         yield AXIS_CONVERSION * v
@@ -406,12 +388,6 @@ def serialize_matrix(m):
     yield m.off.y
     yield m.off.z
     yield 1
-
-#AXIS_CONVERSION = c4d.Matrix()
-
-#AXIS_CONVERSION = c4d.Matrix(v1 = c4d.Vector( 0,  0,  1),
-#                             v2 = c4d.Vector( 0,  1,  0),
-#                             v3 = c4d.Vector(-1,  0,  0))
 
 AXIS_CONVERSION = c4d.utils.MatrixScale(c4d.Vector(1, 1, -1))
 
