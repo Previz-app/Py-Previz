@@ -8,7 +8,7 @@ import time
 import webbrowser
 
 import c4d
-from c4d import gui, plugins, storage, threading
+from c4d import documents, gui, plugins, storage, threading
 
 # Add locale module path
 local_modules_path = os.path.join(os.path.dirname(__file__),
@@ -44,6 +44,8 @@ PROJECT_NEW_EDIT   = next(ids)
 PROJECT_NEW_BUTTON = next(ids)
 
 PUBLISH_BUTTON = next(ids)
+
+DEBUG_BUTTON = next(ids)
 
 MSG_PUBLISH_DONE = __plugin_id__
 
@@ -93,7 +95,8 @@ class PrevizDialog(gui.GeDialog):
             API_TOKEN_BUTTON:       self.OnAPITokenButtonPressed,
             PROJECT_REFRESH_BUTTON: self.OnProjectRefreshButtonPressed,
             PROJECT_NEW_BUTTON:     self.OnProjectNewButtonPressed,
-            PUBLISH_BUTTON:         self.OnPublishButtonPressed
+            PUBLISH_BUTTON:         self.OnPublishButtonPressed,
+            DEBUG_BUTTON:           self.OnDebugButtonPressed
         }
 
     @property
@@ -128,6 +131,10 @@ class PrevizDialog(gui.GeDialog):
         self.AddButton(id=PUBLISH_BUTTON,
                        flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
                        name='Publish to Previz')
+
+        self.AddButton(id=DEBUG_BUTTON,
+                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
+                       name='Debug')
 
         self.RefreshUI()
 
@@ -235,15 +242,26 @@ class PrevizDialog(gui.GeDialog):
         self.RefreshProjectComboBox()
         self.SetInt32(PROJECT_SELECT, project['id'])
 
+    def OnDebugButtonPressed(self, msg):
+        scene = BuildPrevizScene()
+
+        fp, path = tempfile.mkstemp(prefix='previz-',
+                                    suffix='.json',
+                                    text=True)
+        with open('/Users/charles/previz.json', 'w') as fp:
+            previz.export(scene, fp)
+
     def OnPublishButtonPressed(self, msg):
         print 'PrevizDialog.OnPublishButtonPressed', msg
 
         # Write JSON to disk
+        scene = BuildPrevizScene()
+
         fp, path = tempfile.mkstemp(prefix='previz-',
                                     suffix='.json',
                                     text=True)
         fp = os.fdopen(fp)
-        #previz.export(BuildPrevizScene(), fp)
+        previz.export(scene, fp)
         fp.close()
 
         # Upload JSON to Previz in a thread
@@ -311,8 +329,144 @@ class PrevizCommandData(plugins.CommandData):
             self.dialog = PrevizDialog()
 
 
+################################################################################
+
+def vertex_names(polygon):
+    ret = ['a', 'b', 'c']
+    if not polygon.IsTriangle():
+        ret.append('d')
+    return ret
+
+def face_type(polygon, has_uvsets):
+    """
+    See https://github.com/mrdoob/three.js/wiki/JSON-Model-format-3
+    """
+    is_quad = not polygon.IsTriangle()
+    return (int(is_quad) << 0) + (int(has_uvsets) << 3 )
+
+def uvw_tags(obj):
+    return list(t for t in obj.GetTags() if t.GetType() == c4d.Tuvw)
+
+def parse_faces(obj):
+    faces = []
+
+    uvtags = uvw_tags(obj)
+    has_uvsets = len(uvtags) > 0
+    uvsets = [[] for i in xrange(len(uvtags))]
+
+    for polygon_index, p in enumerate(obj.GetAllPolygons()):
+        three_js_face_type = face_type(p, has_uvsets)
+        faces.append(three_js_face_type)
+
+        vertex_indices = list(getattr(p, vn) for vn in vertex_names(p))
+        faces.append(vertex_indices)
+
+        for uvtag, uvset in zip(uvtags, uvsets):
+            uvdict = uvtag.GetSlow(polygon_index)
+            for vn in vertex_names(p):
+                uv = list((uvdict[vn].x, 1-uvdict[vn].y))
+                uvset.append(uv)
+                faces.append(len(uvset)-1)
+
+    return faces, uvsets
+
+
+
+def get_vertices(obj):
+    for v in obj.GetAllPoints():
+        yield AXIS_CONVERSION * v
+
+def parse_geometry(obj):
+    vertices = ((v.x, v.y, v.z) for v in get_vertices(obj))
+
+    uvtags = list(uvw_tags(obj))
+    uvsets = [[] for i in range(len(uvtags))]
+
+    faces, uvsets = parse_faces(obj)
+
+    return obj.GetName() + 'Geometry', faces, vertices, uvsets
+
+def serialize_matrix(m):
+    yield m.v1.x
+    yield m.v1.y
+    yield m.v1.z
+    yield 0
+
+    yield m.v2.x
+    yield m.v2.y
+    yield m.v2.z
+    yield 0
+
+    yield m.v3.x
+    yield m.v3.y
+    yield m.v3.z
+    yield 0
+
+    yield m.off.x
+    yield m.off.y
+    yield m.off.z
+    yield 1
+
+#AXIS_CONVERSION = c4d.Matrix()
+
+#AXIS_CONVERSION = c4d.Matrix(v1 = c4d.Vector( 0,  0,  1),
+#                             v2 = c4d.Vector( 0,  1,  0),
+#                             v3 = c4d.Vector(-1,  0,  0))
+
+AXIS_CONVERSION = c4d.utils.MatrixScale(c4d.Vector(1, 1, -1))
+
+def convert_matrix(matrix):
+    return serialize_matrix(AXIS_CONVERSION * matrix)
+
+def parse_mesh(obj):
+    name = obj.GetName()
+    world_matrix = convert_matrix(obj.GetMg())
+    geometry_name, faces, vertices, uvsets = parse_geometry(obj)
+
+    return previz.Mesh(name,
+                       geometry_name,
+                       world_matrix,
+                       faces,
+                       vertices,
+                       uvsets)
+
+def exportable_objects(doc):
+    return (o for o in doc.GetObjects() if isinstance(o, c4d.PolygonObject))
+
+def build_objects(doc):
+    for o in exportable_objects(doc):
+        yield parse_mesh(o)
+
 def BuildPrevizScene():
-    return {}
+    print '---- START', 'BuildPrevizScene'
+    print 'AXIS_CONVERSION'
+    print AXIS_CONVERSION
+
+    doc = c4d.documents.GetActiveDocument()
+    doc = doc.Polygonize()
+
+    return previz.Scene('Cinema4D-Previz',
+                        os.path.basename(doc.GetDocumentPath()),
+                        None,
+                        build_objects(doc))
+
+    #doc = c4d.documents.GetActiveDocument()
+    #print doc
+    #doc = doc.Polygonize()
+    #print doc
+    #for o in doc.GetObjects():
+    #    print o, o.GetMg()
+    #    print len(o.GetAllPoints()), o.GetAllPoints()
+    #    for p in o.GetAllPolygons():
+    #        print p.IsTriangle(), p.a, p.b, p.c, p.d
+    #    for t in o.GetTags():
+    #        if t.GetType() == c4d.Tuvw:
+    #            uv = t
+    #            print uv.GetName(), uv.GetDataCount()
+    #            for i in xrange(uv.GetDataCount()):
+    #                print uv.GetSlow(i)
+
+    print '---- END', 'BuildPrevizScene'
 
 
 class PublisherThread(threading.C4DThread):
@@ -329,9 +483,8 @@ class PublisherThread(threading.C4DThread):
         with open(self.path, 'rb') as fp:
             print 'START upload'
             p.update_scene(fp)
-            time.sleep(3)
             print 'STOP upload'
-            c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
+        c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
 
 publisher_thread = None
 
