@@ -43,6 +43,8 @@ PROJECT_NEW_LABEL  = next(ids)
 PROJECT_NEW_EDIT   = next(ids)
 PROJECT_NEW_BUTTON = next(ids)
 
+GROUP_BUTTONS  = next(ids)
+EXPORT_BUTTON  = next(ids)
 PUBLISH_BUTTON = next(ids)
 
 MSG_PUBLISH_DONE = __plugin_id__
@@ -93,6 +95,7 @@ class PrevizDialog(gui.GeDialog):
             API_TOKEN_BUTTON:       self.OnAPITokenButtonPressed,
             PROJECT_REFRESH_BUTTON: self.OnProjectRefreshButtonPressed,
             PROJECT_NEW_BUTTON:     self.OnProjectNewButtonPressed,
+            EXPORT_BUTTON:          self.OnExportButtonPressed,
             PUBLISH_BUTTON:         self.OnPublishButtonPressed
         }
 
@@ -124,6 +127,17 @@ class PrevizDialog(gui.GeDialog):
         self.CreateNewProjectLine()
 
         self.GroupEnd()
+
+        self.GroupBegin(id=GROUP_BUTTONS,
+                        flags=c4d.BFH_SCALEFIT,
+                        cols=2,
+                        rows=1,
+                        title='Actions',
+                        groupflags=c4d.BORDER_NONE)
+
+        self.AddButton(id=EXPORT_BUTTON,
+                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
+                       name='Export to file')
 
         self.AddButton(id=PUBLISH_BUTTON,
                        flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
@@ -235,6 +249,21 @@ class PrevizDialog(gui.GeDialog):
         self.RefreshProjectComboBox()
         self.SetInt32(PROJECT_SELECT, project['id'])
 
+    def OnExportButtonPressed(self, msg):
+        print 'PrevizDialog.OnExportButtonPressed', msg
+
+        filepath = c4d.storage.SaveDialog(
+            type=c4d.FILESELECTTYPE_SCENES,
+            title="Export scene to Previz JSON",
+            force_suffix="json"
+        )
+
+        if filepath is None:
+            return
+
+        with open(filepath, 'w') as fp:
+            previz.export(BuildPrevizScene(), fp)
+
     def OnPublishButtonPressed(self, msg):
         print 'PrevizDialog.OnPublishButtonPressed', msg
 
@@ -336,7 +365,7 @@ def parse_faces(obj):
 
     uvtags = uvw_tags(obj)
     has_uvsets = len(uvtags) > 0
-    uvsets = [[] for i in xrange(len(uvtags))]
+    uvsets = [previz.UVSet(uvtag.GetName(), []) for uvtag in uvtags]
 
     for polygon_index, p in enumerate(obj.GetAllPolygons()):
         three_js_face_type = face_type(p, has_uvsets)
@@ -349,7 +378,7 @@ def parse_faces(obj):
             uvdict = uvtag.GetSlow(polygon_index)
             for vn in vertex_names(p):
                 uv = list((uvdict[vn].x, 1-uvdict[vn].y))
-                uvset.append(uv)
+                uvset.coordinates.append(uv)
                 faces.append(len(uvset)-1)
 
     return faces, uvsets
@@ -425,22 +454,6 @@ def BuildPrevizScene():
                         os.path.basename(doc.GetDocumentPath()),
                         None,
                         build_objects(doc))
-
-    #doc = c4d.documents.GetActiveDocument()
-    #print doc
-    #doc = doc.Polygonize()
-    #print doc
-    #for o in doc.GetObjects():
-    #    print o, o.GetMg()
-    #    print len(o.GetAllPoints()), o.GetAllPoints()
-    #    for p in o.GetAllPolygons():
-    #        print p.IsTriangle(), p.a, p.b, p.c, p.d
-    #    for t in o.GetTags():
-    #        if t.GetType() == c4d.Tuvw:
-    #            uv = t
-    #            print uv.GetName(), uv.GetDataCount()
-    #            for i in xrange(uv.GetDataCount()):
-    #                print uv.GetSlow(i)
 
     print '---- END', 'BuildPrevizScene'
 
