@@ -20,6 +20,11 @@ sys.path.insert(0, local_modules_path)
 
 import previz
 
+__author__ = 'Charles Flèche'
+__website__ = 'https://dandelion-burdock.beanstalkapp.com/'
+__email__ = 'charles.fleche@gmail.com'
+__version__ = "0.0.1"
+
 __plugin_id__ = 938453
 __plugin_title__ = 'Previz'
 
