@@ -26,7 +26,8 @@ $ cd cinema4d
 $ mkdir -p Py-Previz/res/lib/python/site-packages
 $ cp -r ../previz/previz third-party/requests Py-Previz/res/lib/python/site-packages
 $ grep __version__ Py-Previz/Py-Previz.pyp
-__version__ = "0.0.1"
+__version__ = "0.0.2"
+$ zip -r Py-Previz-v0.0.2.zip Py-Previz
   adding: Py-Previz/ (stored 0%)
   adding: Py-Previz/Py-Previz.pyp (deflated 74%)
   adding: Py-Previz/res/ (stored 0%)
