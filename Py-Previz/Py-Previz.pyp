@@ -106,7 +106,7 @@ class PrevizDialog(gui.GeDialog):
 
     @property
     def previz_project(self):
-        api_root = 'https://previz.online/api'
+        api_root = 'https://app.previz.co/api'
         api_token = self.GetString(API_TOKEN_EDIT)
         return previz.PrevizProject(api_root, api_token)
 
@@ -220,7 +220,7 @@ class PrevizDialog(gui.GeDialog):
 
     def OnAPITokenButtonPressed(self, msg):
         print 'PrevizDialog.OnAPITokenButtonPressed', msg
-        webbrowser.open('https://previz.online/settings#/api')
+        webbrowser.open('https://app.previz.co/settings#/api')
 
     def OnProjectRefreshButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectRefreshButtonPressed', msg
@@ -283,7 +283,7 @@ class PrevizDialog(gui.GeDialog):
         fp.close()
 
         # Upload JSON to Previz in a thread
-        api_root = 'https://previz.online/api'
+        api_root = 'https://app.previz.co/api'
         api_token = self.GetString(API_TOKEN_EDIT)
         project_id = self.GetInt32(PROJECT_SELECT)
 
