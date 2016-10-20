@@ -23,7 +23,7 @@ import previz
 __author__ = 'Charles Flèche'
 __website__ = 'https://dandelion-burdock.beanstalkapp.com/'
 __email__ = 'charles.fleche@gmail.com'
-__version__ = "0.0.2"
+__version__ = "0.0.7"
 
 __plugin_id__ = 938453
 __plugin_title__ = 'Previz'
