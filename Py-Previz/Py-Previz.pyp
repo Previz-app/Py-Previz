@@ -390,7 +390,7 @@ def parse_faces(obj):
 
 def get_vertices(obj):
     for v in obj.GetAllPoints():
-        yield AXIS_CONVERSION * v
+		yield v
 
 def parse_geometry(obj):
     vertices = ((v.x, v.y, v.z) for v in get_vertices(obj))
@@ -440,8 +440,27 @@ def parse_mesh(obj):
                        vertices,
                        uvsets)
 
+def iterate(obj):
+    down = obj.GetDown()
+    if down is not None:
+        for o in iterate(down):
+            yield o
+
+    yield obj
+
+    next = obj.GetNext()
+    if next is not None:
+        for o in iterate(next):
+            yield o
+
+def traverse(doc):
+	objs = doc.GetObjects()
+	if len(objs) == 0:
+		return []
+	return iterate(objs[0])
+
 def exportable_objects(doc):
-    return (o for o in doc.GetObjects() if isinstance(o, c4d.PolygonObject))
+    return (o for o in traverse(doc) if isinstance(o, c4d.PolygonObject))
 
 def build_objects(doc):
     for o in exportable_objects(doc):
