@@ -23,7 +23,7 @@ import previz
 __author__ = 'Charles Flèche'
 __website__ = 'https://dandelion-burdock.beanstalkapp.com/'
 __email__ = 'charles.fleche@gmail.com'
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 
 __plugin_id__ = 938453
 __plugin_title__ = 'Previz'
@@ -372,6 +372,7 @@ def parse_faces(obj):
     has_uvsets = len(uvtags) > 0
     uvsets = [previz.UVSet(uvtag.GetName(), []) for uvtag in uvtags]
 
+    uv_index = 0
     for polygon_index, p in enumerate(obj.GetAllPolygons()):
         three_js_face_type = face_type(p, has_uvsets)
         faces.append(three_js_face_type)
@@ -384,7 +385,8 @@ def parse_faces(obj):
             for vn in vertex_names(p):
                 uv = list((uvdict[vn].x, 1-uvdict[vn].y))
                 uvset.coordinates.append(uv)
-                faces.append(len(uvset)-1)
+                faces.append(uv_index)
+                uv_index += 1
 
     return faces, uvsets
 
@@ -468,8 +470,6 @@ def build_objects(doc):
 
 def BuildPrevizScene():
     print '---- START', 'BuildPrevizScene'
-    print 'AXIS_CONVERSION'
-    print AXIS_CONVERSION
 
     doc = c4d.documents.GetActiveDocument()
     doc = doc.Polygonize()
