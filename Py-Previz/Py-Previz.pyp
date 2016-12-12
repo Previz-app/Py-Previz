@@ -34,27 +34,97 @@ def ids_iterator():
 
 ids=ids_iterator()
 
-GROUP_GRID = next(ids)
-
 API_TOKEN_LABEL  = next(ids)
 API_TOKEN_EDIT   = next(ids)
 API_TOKEN_BUTTON = next(ids)
 
-PROJECT_LABEL          = next(ids)
-PROJECT_SELECT         = next(ids)
-PROJECT_REFRESH_BUTTON = next(ids)
+TEAM_LABEL     = next(ids)
+TEAM_SELECT    = next(ids)
+PROJECT_LABEL  = next(ids)
+PROJECT_SELECT = next(ids)
+SCENE_LABEL    = next(ids)
+SCENE_SELECT   = next(ids)
 
-PROJECT_NEW_LABEL  = next(ids)
 PROJECT_NEW_EDIT   = next(ids)
 PROJECT_NEW_BUTTON = next(ids)
+SCENE_NEW_EDIT     = next(ids)
+SCENE_NEW_BUTTON   = next(ids)
 
-GROUP_BUTTONS  = next(ids)
+REFRESH_BUTTON = next(ids)
 EXPORT_BUTTON  = next(ids)
 PUBLISH_BUTTON = next(ids)
 
 MSG_PUBLISH_DONE = __plugin_id__
 
 SETTINGS_API_TOKEN = 'api_token'
+
+def build_mock_data():
+    team_id    = 0
+    project_id = 0
+    scene_id   = 0
+
+    teams = []
+    for t in range(1, 4):
+
+        projects = []
+        for p in range(1, 4):
+
+            scenes = []
+            for s in range(1, 4):
+                scene_id += 1
+                scenes.append({
+                    'id': scene_id,
+                    'name': 'Scene %d' % scene_id
+                })
+
+            project_id += 1
+            projects.append({
+                'id': project_id,
+                'title': 'Project %d' % project_id,
+                'scenes': scenes
+            })
+
+        team_id += 1
+        teams.append({
+            'id': team_id,
+            'name': 'Team %d' % team_id,
+            'projects': projects
+        })
+    return teams
+
+teams = build_mock_data()
+
+def key(x):
+    key = 'name'
+    if 'title' in x:
+        key = 'title'
+    return x[key]
+
+def find_by_id(items, id):
+    for item in items:
+        if item['id'] == id:
+            return item
+
+class Restore(object):
+    def __init__(self, getter, setter, ui_id):
+        self.getter = getter
+        self.setter = setter
+        self.ui_id  = ui_id
+
+        self.__restore_is_needed = False
+
+    def __call__(self, value):
+        if self.__restore_is_needed:
+            return
+        self.__restore_is_needed = self.old_value == value
+
+    def __enter__(self):
+        self.old_value = self.getter(self.ui_id)
+        return self
+
+    def __exit__(self, type, value, traceback):
+        if self.__restore_is_needed:
+            self.setter(self.ui_id, self.old_value)
 
 class Settings(object):
     def __init__(self, namespace):
@@ -96,12 +166,16 @@ class PrevizDialog(gui.GeDialog):
         self.settings = Settings(__plugin_title__)
 
         self.commands = {
-            API_TOKEN_EDIT:         self.OnAPITokenChanged,
-            API_TOKEN_BUTTON:       self.OnAPITokenButtonPressed,
-            PROJECT_REFRESH_BUTTON: self.OnProjectRefreshButtonPressed,
-            PROJECT_NEW_BUTTON:     self.OnProjectNewButtonPressed,
-            EXPORT_BUTTON:          self.OnExportButtonPressed,
-            PUBLISH_BUTTON:         self.OnPublishButtonPressed
+            API_TOKEN_EDIT:     self.OnAPITokenChanged,
+            API_TOKEN_BUTTON:   self.OnAPITokenButtonPressed,
+            TEAM_SELECT:        self.OnTeamSelectPressed,
+            PROJECT_SELECT:     self.OnProjectSelectPressed,
+            SCENE_SELECT:       self.OnSceneSelectPressed,
+            PROJECT_NEW_BUTTON: self.OnProjectNewButtonPressed,
+            SCENE_NEW_BUTTON:   self.OnSceneNewButtonPressed,
+            REFRESH_BUTTON:     self.OnRefreshButtonPressed,
+            EXPORT_BUTTON:      self.OnExportButtonPressed,
+            PUBLISH_BUTTON:     self.OnPublishButtonPressed
         }
 
     @property
@@ -115,30 +189,54 @@ class PrevizDialog(gui.GeDialog):
 
         self.SetString(API_TOKEN_EDIT, self.settings['api_token'])
 
+        self.RefreshUI()
+
         return True
 
     def CreateLayout(self):
         self.SetTitle(__plugin_title__)
 
-        self.GroupBegin(id=GROUP_GRID,
+        self.CreateAPITokenLine()
+
+        self.AddSeparatorH(1)
+
+        self.GroupBegin(id=next(ids),
                         flags=c4d.BFH_SCALEFIT,
-                        cols=3,
-                        rows=2,
+                        cols=2,
                         title='Previz',
                         groupflags=c4d.BORDER_NONE)
 
-        self.CreateAPITokenLine()
+        self.CreateTeamLine()
         self.CreateProjectLine()
-        self.CreateNewProjectLine()
+        self.CreateSceneLine()
 
         self.GroupEnd()
 
-        self.GroupBegin(id=GROUP_BUTTONS,
+        self.AddSeparatorH(1)
+
+        self.GroupBegin(id=next(ids),
                         flags=c4d.BFH_SCALEFIT,
                         cols=2,
+                        title='Previz',
+                        groupflags=c4d.BORDER_NONE)
+
+        self.CreateNewProjectLine()
+        self.CreateNewSceneLine()
+
+        self.GroupEnd()
+
+        self.AddSeparatorH(1)
+
+        self.GroupBegin(id=next(ids),
+                        flags=c4d.BFH_SCALEFIT,
+                        cols=3,
                         rows=1,
                         title='Actions',
                         groupflags=c4d.BORDER_NONE)
+
+        self.AddButton(id=REFRESH_BUTTON,
+                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
+                       name='Refresh')
 
         self.AddButton(id=EXPORT_BUTTON,
                        flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
@@ -148,21 +246,36 @@ class PrevizDialog(gui.GeDialog):
                        flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
                        name='Publish to Previz')
 
-        self.RefreshUI()
-
         return True
 
     def CreateAPITokenLine(self):
+        self.GroupBegin(id=next(ids),
+                        flags=c4d.BFH_SCALEFIT,
+                        cols=3,
+                        rows=1,
+                        title='Previz',
+                        groupflags=c4d.BORDER_NONE)
+
         self.AddStaticText(id=API_TOKEN_LABEL,
                            flags=c4d.BFH_LEFT,
                            name='API token')
-
+                           
         self.AddEditText(id=API_TOKEN_EDIT,
                          flags=c4d.BFH_SCALEFIT)
 
         self.AddButton(id=API_TOKEN_BUTTON,
                        flags=c4d.BFH_FIT,
                        name='Get a token')
+
+        self.GroupEnd()
+
+    def CreateTeamLine(self):
+        self.AddStaticText(id=TEAM_LABEL,
+                           flags=c4d.BFH_LEFT,
+                           name='Team')
+
+        self.AddComboBox(id=TEAM_SELECT,
+                         flags=c4d.BFH_SCALEFIT)
 
     def CreateProjectLine(self):
         self.AddStaticText(id=PROJECT_LABEL,
@@ -172,21 +285,29 @@ class PrevizDialog(gui.GeDialog):
         self.AddComboBox(id=PROJECT_SELECT,
                          flags=c4d.BFH_SCALEFIT)
 
-        self.AddButton(id=PROJECT_REFRESH_BUTTON,
-                       flags=c4d.BFH_FIT,
-                       name='Refresh')
+    def CreateSceneLine(self):
+        self.AddStaticText(id=SCENE_LABEL,
+                           flags=c4d.BFH_LEFT,
+                           name='Scene')
+
+        self.AddComboBox(id=SCENE_SELECT,
+                         flags=c4d.BFH_SCALEFIT)
 
     def CreateNewProjectLine(self):
-        self.AddStaticText(id=PROJECT_NEW_LABEL,
-                           flags=c4d.BFH_LEFT,
-                           name='New project')
-
         self.AddEditText(id=PROJECT_NEW_EDIT,
                          flags=c4d.BFH_SCALEFIT)
 
         self.AddButton(id=PROJECT_NEW_BUTTON,
                        flags=c4d.BFH_FIT,
-                       name='New')
+                       name='New project')
+
+    def CreateNewSceneLine(self):
+        self.AddEditText(id=SCENE_NEW_EDIT,
+                         flags=c4d.BFH_SCALEFIT)
+
+        self.AddButton(id=SCENE_NEW_BUTTON,
+                       flags=c4d.BFH_FIT,
+                       name='New scene')
 
     def CoreMessage(self, id, msg):
         if id != MSG_PUBLISH_DONE:
@@ -222,18 +343,88 @@ class PrevizDialog(gui.GeDialog):
         print 'PrevizDialog.OnAPITokenButtonPressed', msg
         webbrowser.open('https://app.previz.co/settings#/api')
 
-    def OnProjectRefreshButtonPressed(self, msg):
-        print 'PrevizDialog.OnProjectRefreshButtonPressed', msg
+    def OnTeamSelectPressed(self, msg):
+        print 'PrevizDialog.OnTeamSelectPressed', msg
+        self.SwitchTeam()
+        self.RefreshTeamComboBox()
+
+    def SwitchTeam(self):
+        team_id = self.GetInt32(TEAM_SELECT)
+        self.previz_project.switch_team(team_id)
+
+        global teams
+        teams = self.previz_project.get_all()
+
+    def OnProjectSelectPressed(self, msg):
+        print 'PrevizDialog.OnProjectSelectPressed', msg
+        self.RefreshSceneComboBox()
+
+    def OnSceneSelectPressed(self, msg):
+        print 'PrevizDialog.OnSceneSelectPressed', msg
+
+    def OnRefreshButtonPressed(self, msg):
+        print 'PrevizDialog.OnRefreshButtonPressed', msg
+        self.RefreshTeamComboBox()
+
+    def RefreshTeamComboBox(self):
+        print 'PrevizDialog.RefreshTeamComboBox'
+
+        with Restore(self.GetInt32, self.SetInt32, TEAM_SELECT) as touch:
+            self.FreeChildren(TEAM_SELECT)
+
+            global teams
+            #teams = self.previz_project.get_all()
+
+            for team in sorted(teams, key=key):
+                id   = team['id']
+                name = team['name']
+                self.AddChild(TEAM_SELECT, id, name)
+                touch(id)
+
+        self.LayoutChanged(TEAM_SELECT)
+
+        print 'RefreshTeamComboBox', touch.old_value, self.GetInt32(TEAM_SELECT)
         self.RefreshProjectComboBox()
 
     def RefreshProjectComboBox(self):
-        projects = sorted(self.previz_project.projects(),
-                          key= lambda x: x['title'])
-        self.FreeChildren(PROJECT_SELECT)
-        for project in projects:
-            self.AddChild(PROJECT_SELECT,
-                          project['id'],
-                          project['title'])
+        print 'PrevizDialog.RefreshProjectComboBox'
+
+        with Restore(self.GetInt32, self.SetInt32, PROJECT_SELECT) as touch:
+            self.FreeChildren(PROJECT_SELECT)
+
+            global teams
+            team     = find_by_id(teams, self.GetInt32(TEAM_SELECT))
+            projects = [] if team is None else team['projects']
+
+            for project in projects:
+                id   = project['id']
+                title = project['title']
+                self.AddChild(PROJECT_SELECT, id, title)
+                touch(id)
+
+        self.LayoutChanged(PROJECT_SELECT)
+
+        self.RefreshSceneComboBox()
+
+    def RefreshSceneComboBox(self):
+        print 'PrevizDialog.RefreshSceneComboBox'
+
+        with Restore(self.GetInt32, self.SetInt32, SCENE_SELECT) as touch:
+            self.FreeChildren(SCENE_SELECT)
+
+            global teams
+            team     = find_by_id(teams, self.GetInt32(TEAM_SELECT))
+            projects = [] if team is None else team['projects']
+            project  = find_by_id(projects, self.GetInt32(PROJECT_SELECT))
+            scenes   = [] if project is None else project['scenes']
+
+            for scene in scenes:
+                id = scene['id']
+                name = scene['name']
+                self.AddChild(SCENE_SELECT, id, name)
+                touch(id)
+
+        self.LayoutChanged(SCENE_SELECT)
 
     def OnProjectNewButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectNewButtonPressed', msg
@@ -253,6 +444,10 @@ class PrevizDialog(gui.GeDialog):
 
         self.RefreshProjectComboBox()
         self.SetInt32(PROJECT_SELECT, project['id'])
+
+    def OnSceneNewButtonPressed(self, msg):
+        print 'PrevizDialog.OnSceneNewButtonPressed', msg
+        print '==== Not Implemented Yet ===='
 
     def OnExportButtonPressed(self, msg):
         print 'PrevizDialog.OnExportButtonPressed', msg
@@ -294,24 +489,56 @@ class PrevizDialog(gui.GeDialog):
         # Notice user of success
 
     def RefreshUI(self):
+        print 'PrevizDialog.RefreshUI'
+
         self.RefreshProjectNewButton()
+        self.RefreshSceneNewButton()
+        self.RefreshRefreshButton()
         self.RefreshPublishButton()
 
     def RefreshProjectNewButton(self):
+        team_id = self.GetInt32(TEAM_SELECT)
+        team_id_is_valid = team_id >= 1
+
         project_name = self.GetString(PROJECT_NEW_EDIT)
         project_name_is_valid = len(project_name) > 0
-        self.Enable(PROJECT_NEW_BUTTON, project_name_is_valid)
+
+        self.Enable(PROJECT_NEW_BUTTON,
+                    team_id_is_valid \
+                    and project_name_is_valid)
+
+    def RefreshSceneNewButton(self):
+        project_id = self.GetInt32(PROJECT_SELECT)
+        project_id_is_valid = project_id >= 1
+
+        scene_name = self.GetString(SCENE_NEW_EDIT)
+        scene_name_is_valid = len(scene_name) > 0
+
+        self.Enable(SCENE_NEW_BUTTON,
+                    project_id_is_valid \
+                    and scene_name_is_valid)
+
+    def RefreshRefreshButton(self):
+        api_token = self.GetString(API_TOKEN_EDIT)
+        is_api_token_valid = len(api_token) > 0
+        self.Enable(REFRESH_BUTTON, is_api_token_valid)
 
     def RefreshPublishButton(self):
-        print 'PrevizDialog.RefreshPublishButton'
-
         # Token
         api_token = self.GetString(API_TOKEN_EDIT)
         is_api_token_valid = len(api_token) > 0
 
+        # Team
+        team_id = self.GetInt32(TEAM_SELECT)
+        is_team_id_valid = team_id >= 1
+
         # Project
         project_id = self.GetInt32(PROJECT_SELECT)
-        is_project_id_valid = project_id > 1
+        is_project_id_valid = project_id >= 1
+
+        # Scene
+        scene_id = self.GetInt32(SCENE_SELECT)
+        is_scene_id_valid = scene_id >= 1
 
         # Publisher is running
         is_publisher_thread_running = publisher_thread is not None and publisher_thread.IsRunning()
@@ -319,7 +546,9 @@ class PrevizDialog(gui.GeDialog):
         # Enable / Disable
         self.Enable(PUBLISH_BUTTON,
                     is_api_token_valid \
+                    and is_team_id_valid \
                     and is_project_id_valid \
+                    and is_scene_id_valid \
                     and not is_publisher_thread_running)
 
 
@@ -392,7 +621,7 @@ def parse_faces(obj):
 
 def get_vertices(obj):
     for v in obj.GetAllPoints():
-		yield v
+        yield v
 
 def parse_geometry(obj):
     vertices = ((v.x, v.y, v.z) for v in get_vertices(obj))
@@ -456,10 +685,10 @@ def iterate(obj):
             yield o
 
 def traverse(doc):
-	objs = doc.GetObjects()
-	if len(objs) == 0:
-		return []
-	return iterate(objs[0])
+    objs = doc.GetObjects()
+    if len(objs) == 0:
+        return []
+    return iterate(objs[0])
 
 def exportable_objects(doc):
     return (o for o in traverse(doc) if isinstance(o, c4d.PolygonObject))
