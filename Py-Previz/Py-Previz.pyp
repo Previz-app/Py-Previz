@@ -58,41 +58,7 @@ MSG_PUBLISH_DONE = __plugin_id__
 
 SETTINGS_API_TOKEN = 'api_token'
 
-def build_mock_data():
-    team_id    = 0
-    project_id = 0
-    scene_id   = 0
-
-    teams = []
-    for t in range(1, 4):
-
-        projects = []
-        for p in range(1, 4):
-
-            scenes = []
-            for s in range(1, 4):
-                scene_id += 1
-                scenes.append({
-                    'id': scene_id,
-                    'name': 'Scene %d' % scene_id
-                })
-
-            project_id += 1
-            projects.append({
-                'id': project_id,
-                'title': 'Project %d' % project_id,
-                'scenes': scenes
-            })
-
-        team_id += 1
-        teams.append({
-            'id': team_id,
-            'name': 'Team %d' % team_id,
-            'projects': projects
-        })
-    return teams
-
-teams = build_mock_data()
+teams = {}
 
 def key(x):
     key = 'name'
@@ -182,7 +148,8 @@ class PrevizDialog(gui.GeDialog):
     def previz_project(self):
         api_root = 'https://app.previz.co/api'
         api_token = self.GetString(API_TOKEN_EDIT)
-        return previz.PrevizProject(api_root, api_token)
+        project_id = self.GetInt32(PROJECT_SELECT)
+        return previz.PrevizProject(api_root, api_token, project_id)
 
     def InitValues(self):
         print 'PrevizDialog.InitValues'
@@ -373,7 +340,7 @@ class PrevizDialog(gui.GeDialog):
             self.FreeChildren(TEAM_SELECT)
 
             global teams
-            #teams = self.previz_project.get_all()
+            teams = self.previz_project.get_all()
 
             for team in sorted(teams, key=key):
                 id   = team['id']
@@ -433,6 +400,7 @@ class PrevizDialog(gui.GeDialog):
 
         project_name = self.GetString(PROJECT_NEW_EDIT)
         project = self.previz_project.new_project(project_name)
+        self.RefreshTeamComboBox()
 
         # Clear project name
         # For some reason SetString doesn't send an event
@@ -447,7 +415,24 @@ class PrevizDialog(gui.GeDialog):
 
     def OnSceneNewButtonPressed(self, msg):
         print 'PrevizDialog.OnSceneNewButtonPressed', msg
-        print '==== Not Implemented Yet ===='
+        
+        # New scene
+        
+        scene_name = self.GetString(SCENE_NEW_EDIT)
+        previz_project = self.previz_project
+        scene = self.previz_project.new_scene(scene_name)
+        self.RefreshTeamComboBox()
+
+        # Clear scene name
+        # For some reason SetString doesn't send an event
+
+        self.SetString(SCENE_NEW_EDIT, '')
+        self.RefreshSceneNewButton()
+
+        # Select new scene
+        
+        self.RefreshSceneComboBox()
+        self.SetInt32(SCENE_SELECT, scene['id'])
 
     def OnExportButtonPressed(self, msg):
         print 'PrevizDialog.OnExportButtonPressed', msg
@@ -473,7 +458,7 @@ class PrevizDialog(gui.GeDialog):
         fp, path = tempfile.mkstemp(prefix='previz-',
                                     suffix='.json',
                                     text=True)
-        fp = os.fdopen(fp)
+        fp = os.fdopen(fp, 'w')
         previz.export(scene, fp)
         fp.close()
 
@@ -481,9 +466,10 @@ class PrevizDialog(gui.GeDialog):
         api_root = 'https://app.previz.co/api'
         api_token = self.GetString(API_TOKEN_EDIT)
         project_id = self.GetInt32(PROJECT_SELECT)
+        scene_id = self.GetInt32(SCENE_SELECT)
 
         global publisher_thread
-        publisher_thread = PublisherThread(api_root, api_token, project_id, path)
+        publisher_thread = PublisherThread(api_root, api_token, project_id, scene_id, path)
         publisher_thread.Start()
 
         # Notice user of success
@@ -712,10 +698,11 @@ def BuildPrevizScene():
 
 
 class PublisherThread(threading.C4DThread):
-    def __init__(self, api_root, api_token, project_id, path):
+    def __init__(self, api_root, api_token, project_id, scene_id, path):
         self.api_root = api_root
         self.api_token = api_token
         self.project_id = project_id
+        self.scene_id = scene_id
         self.path = path
 
     def Main(self):
@@ -724,7 +711,7 @@ class PublisherThread(threading.C4DThread):
                                  self.project_id)
         with open(self.path, 'rb') as fp:
             print 'START upload'
-            p.update_scene(fp)
+            p.update_scene(self.scene_id, 'SceneUpload.json', fp)
             print 'STOP upload'
         c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
 
