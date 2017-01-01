@@ -116,7 +116,6 @@ class Settings(object):
             shelf.sync()
 
     def open(self, flag='r'):
-        print self.path
         return contextlib.closing(shelve.open(self.path, flag))
 
     @property
@@ -554,7 +553,6 @@ class PrevizCommandData(plugins.CommandData):
                                    secret=sec_ref)
 
     def Message(self, type, data):
-        #print 'PrevizCommandData.Message', type, data
         return False
 
     def init_dialog_if_needed(self):
