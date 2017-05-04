@@ -593,13 +593,17 @@ def parse_faces(obj):
         vertex_indices = list(getattr(p, vn) for vn in vertex_names(p))
         faces.append(vertex_indices)
 
+        uv_index_local = uv_index
         for uvtag, uvset in zip(uvtags, uvsets):
             uvdict = uvtag.GetSlow(polygon_index)
+            uv_index_offset = 0
             for vn in vertex_names(p):
                 uv = list((uvdict[vn].x, 1-uvdict[vn].y))
                 uvset.coordinates.append(uv)
-                faces.append(uv_index)
-                uv_index += 1
+                cur_uv_index = uv_index_local + uv_index_offset
+                faces.append(cur_uv_index)
+                uv_index_offset += 1
+        uv_index = cur_uv_index + 1
 
     return faces, uvsets
 
