@@ -22,7 +22,7 @@ Copy the `previz` and `requests` module into `Py-Previz/res/lib/python/site-pack
 ```sh
 $ cd /path/to/repo
 $ git clean -f -d -X
-$ cd cinema4d
+$ cd Py-Previz
 $ mkdir -p Py-Previz/res/lib/python/site-packages
 $ cp -r ../previz/previz third-party/requests Py-Previz/res/lib/python/site-packages
 $ grep __version__ Py-Previz/Py-Previz.pyp
