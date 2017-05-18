@@ -17,13 +17,13 @@ Run something similar to `scripts/sync_install.sh` before reloading the plugin i
 Release
 -------
 
-Copy the `previz` and `requests` module into `Py-Previz/res/lib/python/site-packages` and zip the `Py-Previz` folder. Make sure that no stray __pycache__ files lying around. On Linux:
+Copy the `previz` module and the content of third-party folder into `Py-Previz/res/lib/python/site-packages` and zip the `Py-Previz` folder. Make sure that no stray __pycache__ files lying around. On Linux:
 
 ```sh
 $ cd /path/to/Py-Previz-repo
 $ git clean -f -d -X
 $ mkdir -p Py-Previz/res/lib/python/site-packages
-$ cp -r ../previz-python-api/previz third-party/requests Py-Previz/res/lib/python/site-packages
+$ cp -r ../previz-python-api/previz third-party/* Py-Previz/res/lib/python/site-packages
 $ grep __version__ Py-Previz/Py-Previz.pyp
 __version__ = "0.0.2"
 $ zip -r Py-Previz-v0.0.2.zip Py-Previz
