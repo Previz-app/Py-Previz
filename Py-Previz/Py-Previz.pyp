@@ -58,6 +58,8 @@ MSG_PUBLISH_DONE = __plugin_id__
 
 SETTINGS_API_TOKEN = 'api_token'
 
+API_ROOT = 'https://app.previz.co/api'
+
 teams = {}
 
 def key(x):
@@ -145,10 +147,9 @@ class PrevizDialog(gui.GeDialog):
 
     @property
     def previz_project(self):
-        api_root = 'https://app.previz.co/api'
         api_token = self.GetString(API_TOKEN_EDIT)
         project_id = self.GetInt32(PROJECT_SELECT)
-        return previz.PrevizProject(api_root, api_token, project_id)
+        return previz.PrevizProject(API_ROOT, api_token, project_id)
 
     def InitValues(self):
         print 'PrevizDialog.InitValues'
@@ -225,7 +226,7 @@ class PrevizDialog(gui.GeDialog):
         self.AddStaticText(id=API_TOKEN_LABEL,
                            flags=c4d.BFH_LEFT,
                            name='API token')
-                           
+
         self.AddEditText(id=API_TOKEN_EDIT,
                          flags=c4d.BFH_SCALEFIT)
 
@@ -414,9 +415,9 @@ class PrevizDialog(gui.GeDialog):
 
     def OnSceneNewButtonPressed(self, msg):
         print 'PrevizDialog.OnSceneNewButtonPressed', msg
-        
+
         # New scene
-        
+
         scene_name = self.GetString(SCENE_NEW_EDIT)
         previz_project = self.previz_project
         scene = self.previz_project.new_scene(scene_name)
@@ -429,7 +430,7 @@ class PrevizDialog(gui.GeDialog):
         self.RefreshSceneNewButton()
 
         # Select new scene
-        
+
         self.RefreshSceneComboBox()
         self.SetInt32(SCENE_SELECT, scene['id'])
 
@@ -462,13 +463,12 @@ class PrevizDialog(gui.GeDialog):
         fp.close()
 
         # Upload JSON to Previz in a thread
-        api_root = 'https://app.previz.co/api'
         api_token = self.GetString(API_TOKEN_EDIT)
         project_id = self.GetInt32(PROJECT_SELECT)
         scene_id = self.GetInt32(SCENE_SELECT)
 
         global publisher_thread
-        publisher_thread = PublisherThread(api_root, api_token, project_id, scene_id, path)
+        publisher_thread = PublisherThread(API_ROOT, api_token, project_id, scene_id, path)
         publisher_thread.Start()
 
         # Notice user of success
