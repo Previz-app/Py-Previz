@@ -39,6 +39,9 @@ API_TOKEN_LABEL  = next(ids)
 API_TOKEN_EDIT   = next(ids)
 API_TOKEN_BUTTON = next(ids)
 
+PREVIZ_DOMAIN_LABEL = next(ids)
+PREVIZ_DOMAIN_EDIT  = next(ids)
+
 TEAM_LABEL     = next(ids)
 TEAM_SELECT    = next(ids)
 PROJECT_LABEL  = next(ids)
@@ -57,7 +60,8 @@ PUBLISH_BUTTON = next(ids)
 
 MSG_PUBLISH_DONE = __plugin_id__
 
-SETTINGS_API_TOKEN = 'api_token'
+SETTINGS_API_TOKEN     = 'api_token'
+SETTINGS_PREVIZ_DOMAIN = 'previz_domain'
 
 debug_canary_path = os.path.join(os.path.dirname(__file__), 'c4d_debug.txt')
 
@@ -109,6 +113,8 @@ class Settings(object):
         with self.open('c') as shelf:
             if SETTINGS_API_TOKEN not in shelf:
                 shelf[SETTINGS_API_TOKEN] = ''
+            if SETTINGS_PREVIZ_DOMAIN not in shelf:
+                shelf[SETTINGS_PREVIZ_DOMAIN] = __website__
 
     def __getitem__(self, key):
         with self.open('r') as shelf:
@@ -130,6 +136,11 @@ class Settings(object):
     def dirpath(self):
         return os.path.join(storage.GeGetStartupWritePath(), self.namespace)
 
+
+def get_api_root(previz_domain):
+    return os.path.join(previz_domain, 'api')
+
+
 class PrevizDialog(gui.GeDialog):
     def __init__(self):
         self.settings = Settings(__plugin_title__)
@@ -137,6 +148,7 @@ class PrevizDialog(gui.GeDialog):
         self.commands = {
             API_TOKEN_EDIT:     self.OnAPITokenChanged,
             API_TOKEN_BUTTON:   self.OnAPITokenButtonPressed,
+            PREVIZ_DOMAIN_EDIT: self.OnPrevizDomainChanged,
             TEAM_SELECT:        self.OnTeamSelectPressed,
             PROJECT_SELECT:     self.OnProjectSelectPressed,
             SCENE_SELECT:       self.OnSceneSelectPressed,
@@ -149,7 +161,7 @@ class PrevizDialog(gui.GeDialog):
 
     @property
     def previz_project(self):
-        api_root = 'https://app.previz.co/api'
+        api_root = get_api_root(self.GetString(PREVIZ_DOMAIN_EDIT))
         api_token = self.GetString(API_TOKEN_EDIT)
         project_id = self.GetInt32(PROJECT_SELECT)
         return previz.PrevizProject(api_root, api_token, project_id)
@@ -157,6 +169,7 @@ class PrevizDialog(gui.GeDialog):
     def InitValues(self):
         print 'PrevizDialog.InitValues'
 
+        self.SetString(PREVIZ_DOMAIN_EDIT, self.settings['previz_domain'])
         self.SetString(API_TOKEN_EDIT, self.settings['api_token'])
 
         self.RefreshUI()
@@ -165,6 +178,9 @@ class PrevizDialog(gui.GeDialog):
 
     def CreateLayout(self):
         self.SetTitle(__plugin_title__)
+
+        if debug:
+            self.CreatePrevizDomainLine()
 
         self.CreateAPITokenLine()
 
@@ -217,6 +233,23 @@ class PrevizDialog(gui.GeDialog):
                        name='Publish to Previz')
 
         return True
+
+    def CreatePrevizDomainLine(self):
+        self.GroupBegin(id=next(ids),
+                        flags=c4d.BFH_SCALEFIT,
+                        cols=2,
+                        rows=1,
+                        title='Previz',
+                        groupflags=c4d.BORDER_NONE)
+
+        self.AddStaticText(id=PREVIZ_DOMAIN_LABEL,
+                           flags=c4d.BFH_LEFT,
+                           name='Domain')
+
+        self.AddEditText(id=PREVIZ_DOMAIN_EDIT,
+                         flags=c4d.BFH_SCALEFIT)
+
+        self.GroupEnd()
 
     def CreateAPITokenLine(self):
         self.GroupBegin(id=next(ids),
@@ -303,6 +336,11 @@ class PrevizDialog(gui.GeDialog):
         self.RefreshUI()
 
         return True
+
+    def OnPrevizDomainChanged(self, msg):
+        print 'PrevizDialog.OnPrevizDomainChanged'
+        previz_domain = self.GetString(PREVIZ_DOMAIN_EDIT)
+        self.settings[SETTINGS_PREVIZ_DOMAIN] = previz_domain
 
     def OnAPITokenChanged(self, msg):
         print 'PrevizDialog.OnAPITokenChanged'
@@ -466,7 +504,7 @@ class PrevizDialog(gui.GeDialog):
         fp.close()
 
         # Upload JSON to Previz in a thread
-        api_root = 'https://app.previz.co/api'
+        api_root = get_api_root(self.GetString(PREVIZ_DOMAIN_EDIT))
         api_token = self.GetString(API_TOKEN_EDIT)
         project_id = self.GetInt32(PROJECT_SELECT)
         scene_id = self.GetInt32(SCENE_SELECT)
