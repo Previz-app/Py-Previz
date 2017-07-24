@@ -28,6 +28,7 @@ __version__ = "0.0.12"
 __plugin_id__ = 938453
 __plugin_title__ = 'Previz'
 
+
 def ids_iterator():
     for i in xrange(sys.maxint):
         yield i
@@ -58,6 +59,9 @@ MSG_PUBLISH_DONE = __plugin_id__
 
 SETTINGS_API_TOKEN = 'api_token'
 
+debug_canary_path = os.path.join(os.path.dirname(__file__), 'c4d_debug.txt')
+
+debug = os.path.exists(debug_canary_path)
 teams = {}
 
 def key(x):
@@ -744,6 +748,8 @@ def PluginMessage(id, data):
     return True
 
 if __name__ == '__main__':
+    if debug:
+        print 'DEBUG MODE as this file exists:', debug_canary_path
     print 'Registering PrevizCommandData'
     plugins.RegisterCommandPlugin(id=__plugin_id__,
                                   str='Py-Previz',
