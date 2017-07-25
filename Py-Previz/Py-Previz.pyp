@@ -197,8 +197,14 @@ class PrevizDialog(gui.GeDialog):
     def previz_project(self):
         api_root = get_api_root(self.GetString(PREVIZ_DOMAIN_EDIT))
         api_token = self.GetString(API_TOKEN_EDIT)
-        project_id = self.GetInt32(PROJECT_SELECT)
-        return previz.PrevizProject(api_root, api_token, project_id)
+
+        global teams
+        team = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
+        projects = team['projects'] if team is not None else []
+        project = find_by_key(projects, 'id', self.GetInt32(PROJECT_SELECT))
+        project_uuid = project['uuid'] if project is not None else None
+
+        return previz.PrevizProject(api_root, api_token, project_uuid)
 
     def get_all(self):
         return extract_all(self.previz_project.get_all())
