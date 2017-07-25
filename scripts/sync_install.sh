@@ -1,4 +1,18 @@
 #!/bin/bash
 
-rsync --archive --progress --human-readable Py-Previz $HOME/Library/Preferences/MAXON/CINEMA\ 4D\ R17_89538A46/plugins
-rsync --archive --progress --human-readable /Users/charles/src/previz-exporters/previz/previz $HOME/Library/Preferences/MAXON/CINEMA\ 4D\ R17_89538A46/plugins/Py-Previz/res/lib/python/site-packages
+REPO_SRC=/home/charles/src/github/Previz-app
+PLUGIN_SRC=$REPO_SRC/Py-Previz/Py-Previz
+PREVIZ_MODULE_SRC=$REPO_SRC/previz-python-api/previz
+REQUESTS_SRC=$REPO_SRC/Py-Previz/third-party/requests
+REQUESTS_TOOLBELT_SRC=$REPO_SRC/Py-Previz/third-party/requests_toolbelt
+
+PLUGIN_DST='Nialls-MacBook-Pro.local:/Users/charles/Library/Preferences/MAXON/CINEMA4D/plugins/Py-Previz'
+DEPS_DST=$PLUGIN_DST/res/lib/python/site-packages
+
+rsync --archive --progress --human-readable --delete "$PLUGIN_SRC/" "$PLUGIN_DST"
+
+rsync --archive --progress --human-readable \
+    $PREVIZ_MODULE_SRC \
+    $REQUESTS_SRC \
+    $REQUESTS_TOOLBELT_SRC \
+    $DEPS_DST
