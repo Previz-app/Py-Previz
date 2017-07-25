@@ -203,6 +203,11 @@ class PrevizDialog(gui.GeDialog):
     def get_all(self):
         return extract_all(self.previz_project.get_all())
 
+    def refresh_all(self):
+        global teams
+        teams = self.get_all()
+        self.RefreshTeamComboBox()
+
     def InitValues(self):
         print 'PrevizDialog.InitValues'
 
@@ -401,9 +406,7 @@ class PrevizDialog(gui.GeDialog):
 
     def OnRefreshButtonPressed(self, msg):
         print 'PrevizDialog.OnRefreshButtonPressed', msg
-        global teams
-        teams = self.get_all()
-        self.RefreshTeamComboBox()
+        self.refresh_all()
 
     def set_default_id_if_needed(self, id, iterable):
         if self.GetInt32(id) == -1 and len(iterable) > 0:
