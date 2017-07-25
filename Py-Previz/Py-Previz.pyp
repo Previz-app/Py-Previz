@@ -72,9 +72,9 @@ def key(x):
     key = 'title' if 'title' in x else 'name'
     return x[key]
 
-def find_by_id(items, id):
+def find_by_key(items, key_name, key_value):
     for item in items:
-        if item['id'] == id:
+        if item[key_name] == key_value:
             return item
 
 class Restore(object):
@@ -440,7 +440,7 @@ class PrevizDialog(gui.GeDialog):
             self.FreeChildren(PROJECT_SELECT)
 
             global teams
-            team     = find_by_id(teams, self.GetInt32(TEAM_SELECT))
+            team     = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
             projects = [] if team is None else team['projects']
 
             for project in projects:
@@ -462,9 +462,9 @@ class PrevizDialog(gui.GeDialog):
             self.FreeChildren(SCENE_SELECT)
 
             global teams
-            team     = find_by_id(teams, self.GetInt32(TEAM_SELECT))
+            team     = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
             projects = [] if team is None else team['projects']
-            project  = find_by_id(projects, self.GetInt32(PROJECT_SELECT))
+            project  = find_by_key(projects, 'id', self.GetInt32(PROJECT_SELECT))
             scenes   = [] if project is None else project['scenes']
 
             for scene in scenes:
