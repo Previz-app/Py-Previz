@@ -139,6 +139,42 @@ def get_api_root(previz_domain):
     return os.path.join(previz_domain, 'api')
 
 
+uuids = {}
+def get_id_for_uuids(uuid):
+    if uuid in uuids:
+        return uuids[uuid]
+    id = len(uuids)
+    uuids[uuid] = id
+    return id
+
+
+def extract(data, next_name = None):
+    ret = {
+        'uuid': data['id'],
+        'id': get_id_for_uuids(data['id']),
+        'title': data['title']
+    }
+    if next_name is None:
+        return ret
+
+    ret[next_name] = []
+    return ret, ret[next_name]
+
+
+def extract_all(teams_data):
+    teams = []
+    for t in teams_data:
+        team, projects = extract(t, 'projects')
+        teams.append(team)
+        for p in t['projects']:
+            project, scenes = extract(p, 'scenes')
+            projects.append(project)
+            for s in p['scenes']:
+                scene = extract(s)
+                scenes.append(scene)
+    return teams
+
+
 class PrevizDialog(gui.GeDialog):
     def __init__(self):
         self.settings = Settings(__plugin_title__)
@@ -163,6 +199,9 @@ class PrevizDialog(gui.GeDialog):
         api_token = self.GetString(API_TOKEN_EDIT)
         project_id = self.GetInt32(PROJECT_SELECT)
         return previz.PrevizProject(api_root, api_token, project_id)
+
+    def get_all(self):
+        return extract_all(self.previz_project.get_all())
 
     def InitValues(self):
         print 'PrevizDialog.InitValues'
