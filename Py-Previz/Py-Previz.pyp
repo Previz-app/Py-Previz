@@ -260,7 +260,7 @@ class PrevizDialog(gui.GeDialog):
         self.AddStaticText(id=API_TOKEN_LABEL,
                            flags=c4d.BFH_LEFT,
                            name='API token')
-                           
+
         self.AddEditText(id=API_TOKEN_EDIT,
                          flags=c4d.BFH_SCALEFIT)
 
@@ -454,9 +454,9 @@ class PrevizDialog(gui.GeDialog):
 
     def OnSceneNewButtonPressed(self, msg):
         print 'PrevizDialog.OnSceneNewButtonPressed', msg
-        
+
         # New scene
-        
+
         scene_name = self.GetString(SCENE_NEW_EDIT)
         previz_project = self.previz_project
         scene = self.previz_project.new_scene(scene_name)
@@ -469,7 +469,7 @@ class PrevizDialog(gui.GeDialog):
         self.RefreshSceneNewButton()
 
         # Select new scene
-        
+
         self.RefreshSceneComboBox()
         self.SetInt32(SCENE_SELECT, scene['id'])
 
