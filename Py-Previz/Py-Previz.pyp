@@ -401,6 +401,8 @@ class PrevizDialog(gui.GeDialog):
 
     def OnRefreshButtonPressed(self, msg):
         print 'PrevizDialog.OnRefreshButtonPressed', msg
+        global teams
+        teams = self.get_all()
         self.RefreshTeamComboBox()
 
     def RefreshTeamComboBox(self):
