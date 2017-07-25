@@ -509,7 +509,6 @@ class PrevizDialog(gui.GeDialog):
         # New scene
 
         scene_name = self.GetString(SCENE_NEW_EDIT)
-        previz_project = self.previz_project
         scene = self.previz_project.new_scene(scene_name)
         self.RefreshTeamComboBox()
 
