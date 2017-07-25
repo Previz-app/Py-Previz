@@ -412,10 +412,8 @@ class PrevizDialog(gui.GeDialog):
             self.FreeChildren(TEAM_SELECT)
 
             global teams
-            teams = self.previz_project.get_all()
-
             for team in sorted(teams, key=key):
-                id   = hash(team['id'])
+                id   = team['id']
                 name = team['title']
                 self.AddChild(TEAM_SELECT, id, name)
                 touch(id)
