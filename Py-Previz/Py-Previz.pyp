@@ -481,10 +481,11 @@ class PrevizDialog(gui.GeDialog):
         print 'PrevizDialog.OnProjectNewButtonPressed', msg
 
         # New project
-
+        global teams
+        team_uuid = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))['uuid']
         project_name = self.GetString(PROJECT_NEW_EDIT)
-        project = self.previz_project.new_project(project_name)
-        self.RefreshTeamComboBox()
+        project = self.previz_project.new_project(project_name, team_uuid)
+        self.refresh_all()
 
         # Clear project name
         # For some reason SetString doesn't send an event
@@ -495,6 +496,11 @@ class PrevizDialog(gui.GeDialog):
         # Select new project
 
         self.RefreshProjectComboBox()
+
+        project_uuid = project['id']
+        team = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
+        projects = team['projects']
+        project = find_by_key(projects, 'uuid', project_uuid)
         self.SetInt32(PROJECT_SELECT, project['id'])
 
     def OnSceneNewButtonPressed(self, msg):
