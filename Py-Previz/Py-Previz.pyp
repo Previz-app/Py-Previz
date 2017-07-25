@@ -405,6 +405,11 @@ class PrevizDialog(gui.GeDialog):
         teams = self.get_all()
         self.RefreshTeamComboBox()
 
+    def set_default_id_if_needed(self, id, iterable):
+        if self.GetInt32(id) == -1 and len(iterable) > 0:
+            v = iterable[0]['id']
+            self.SetInt32(id, v)
+
     def RefreshTeamComboBox(self):
         print 'PrevizDialog.RefreshTeamComboBox'
 
@@ -417,6 +422,8 @@ class PrevizDialog(gui.GeDialog):
                 name = team['title']
                 self.AddChild(TEAM_SELECT, id, name)
                 touch(id)
+
+        self.set_default_id_if_needed(TEAM_SELECT, sorted(teams, key=key))
 
         self.LayoutChanged(TEAM_SELECT)
 
@@ -439,6 +446,8 @@ class PrevizDialog(gui.GeDialog):
                 self.AddChild(PROJECT_SELECT, id, title)
                 touch(id)
 
+        self.set_default_id_if_needed(PROJECT_SELECT, sorted(projects, key=key))
+
         self.LayoutChanged(PROJECT_SELECT)
 
         self.RefreshSceneComboBox()
@@ -460,6 +469,8 @@ class PrevizDialog(gui.GeDialog):
                 name = scene['title']
                 self.AddChild(SCENE_SELECT, id, name)
                 touch(id)
+
+        self.set_default_id_if_needed(SCENE_SELECT, sorted(scenes, key=key))
 
         self.LayoutChanged(SCENE_SELECT)
 
