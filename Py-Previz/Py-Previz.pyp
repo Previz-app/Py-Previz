@@ -143,7 +143,7 @@ uuids = {}
 def get_id_for_uuids(uuid):
     if uuid in uuids:
         return uuids[uuid]
-    id = len(uuids)
+    id = len(uuids)+1
     uuids[uuid] = id
     return id
 
