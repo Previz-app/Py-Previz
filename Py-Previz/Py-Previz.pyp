@@ -516,7 +516,7 @@ class PrevizDialog(gui.GeDialog):
 
         scene_name = self.GetString(SCENE_NEW_EDIT)
         scene = self.previz_project.new_scene(scene_name)
-        self.RefreshTeamComboBox()
+        self.refresh_all()
 
         # Clear scene name
         # For some reason SetString doesn't send an event
@@ -527,6 +527,12 @@ class PrevizDialog(gui.GeDialog):
         # Select new scene
 
         self.RefreshSceneComboBox()
+
+        scene_uuid = scene['id']
+        global teams
+        team = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
+        project = find_by_key(team['projects'], 'id', self.GetInt32(PROJECT_SELECT))
+        scene = find_by_key(project['scenes'], 'uuid', scene_uuid)
         self.SetInt32(SCENE_SELECT, scene['id'])
 
     def OnExportButtonPressed(self, msg):
