@@ -69,9 +69,7 @@ debug = os.path.exists(debug_canary_path)
 teams = {}
 
 def key(x):
-    key = 'name'
-    if 'title' in x:
-        key = 'title'
+    key = 'title' if 'title' in x else 'name'
     return x[key]
 
 def find_by_id(items, id):
