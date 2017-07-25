@@ -390,15 +390,7 @@ class PrevizDialog(gui.GeDialog):
 
     def OnTeamSelectPressed(self, msg):
         print 'PrevizDialog.OnTeamSelectPressed', msg
-        self.SwitchTeam()
         self.RefreshTeamComboBox()
-
-    def SwitchTeam(self):
-        team_id = self.GetInt32(TEAM_SELECT)
-        self.previz_project.switch_team(team_id)
-
-        global teams
-        teams = self.previz_project.get_all()
 
     def OnProjectSelectPressed(self, msg):
         print 'PrevizDialog.OnProjectSelectPressed', msg
