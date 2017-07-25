@@ -457,7 +457,7 @@ class PrevizDialog(gui.GeDialog):
 
             for scene in scenes:
                 id = scene['id']
-                name = scene['name']
+                name = scene['title']
                 self.AddChild(SCENE_SELECT, id, name)
                 touch(id)
 
