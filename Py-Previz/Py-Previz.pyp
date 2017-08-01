@@ -23,7 +23,7 @@ import previz
 __author__ = 'Previz'
 __website__ = 'https://app.previz.co'
 __email__ = 'info@previz.co'
-__version__ = "0.0.13"
+__version__ = '0.0.13'
 
 __plugin_id__ = 938453
 __plugin_title__ = 'Previz'
@@ -57,6 +57,7 @@ SCENE_NEW_BUTTON   = next(ids)
 REFRESH_BUTTON = next(ids)
 EXPORT_BUTTON  = next(ids)
 PUBLISH_BUTTON = next(ids)
+NEW_VERSION_BUTTON = next(ids)
 
 MSG_PUBLISH_DONE = __plugin_id__
 
@@ -67,6 +68,7 @@ debug_canary_path = os.path.join(os.path.dirname(__file__), 'c4d_debug.txt')
 
 debug = os.path.exists(debug_canary_path)
 teams = {}
+new_plugin_version = None
 
 def key(x):
     key = 'title' if 'title' in x else 'name'
@@ -190,7 +192,8 @@ class PrevizDialog(gui.GeDialog):
             SCENE_NEW_BUTTON:   self.OnSceneNewButtonPressed,
             REFRESH_BUTTON:     self.OnRefreshButtonPressed,
             EXPORT_BUTTON:      self.OnExportButtonPressed,
-            PUBLISH_BUTTON:     self.OnPublishButtonPressed
+            PUBLISH_BUTTON:     self.OnPublishButtonPressed,
+            NEW_VERSION_BUTTON: self.OnNewVersionButtonPressed
         }
 
     @property
@@ -213,6 +216,10 @@ class PrevizDialog(gui.GeDialog):
         global teams
         teams = self.get_all()
         self.RefreshTeamComboBox()
+
+        global new_plugin_version
+        new_plugin_version = self.previz_project.updated_plugin('cinema4d', __version__)
+        self.RefreshNewVersionButton()
 
     def InitValues(self):
         print 'PrevizDialog.InitValues'
@@ -279,6 +286,12 @@ class PrevizDialog(gui.GeDialog):
         self.AddButton(id=PUBLISH_BUTTON,
                        flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
                        name='Publish to Previz')
+
+        self.GroupEnd()
+
+        self.AddButton(id=NEW_VERSION_BUTTON,
+                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
+                       name='') # defined in RefreshNewVersionButton
 
         return True
 
@@ -573,7 +586,11 @@ class PrevizDialog(gui.GeDialog):
         publisher_thread = PublisherThread(api_root, api_token, project_id, scene_id, path)
         publisher_thread.Start()
 
-        # Notice user of success
+        # Notify user of success
+
+    def OnNewVersionButtonPressed(self, msg):
+        print 'PrevizDialog.OnNewVersionButtonPressed', msg
+        webbrowser.open(new_plugin_version['downloadUrl'])
 
     def RefreshUI(self):
         print 'PrevizDialog.RefreshUI'
@@ -582,6 +599,7 @@ class PrevizDialog(gui.GeDialog):
         self.RefreshSceneNewButton()
         self.RefreshRefreshButton()
         self.RefreshPublishButton()
+        self.RefreshNewVersionButton()
 
     def RefreshProjectNewButton(self):
         team_id = self.GetInt32(TEAM_SELECT)
@@ -637,6 +655,18 @@ class PrevizDialog(gui.GeDialog):
                     and is_project_id_valid \
                     and is_scene_id_valid \
                     and not is_publisher_thread_running)
+
+    def RefreshNewVersionButton(self):
+        global new_plugin_version
+
+        text = 'Previz v%s' % __version__
+        enable = False
+        if new_plugin_version is not None:
+            text = 'Download v%s (installed: v%s)' % (new_plugin_version['version'], __version__)
+            enable = True
+
+        self.SetString(NEW_VERSION_BUTTON, text)
+        self.Enable(NEW_VERSION_BUTTON, enable)
 
 
 class PrevizCommandData(plugins.CommandData):
