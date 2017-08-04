@@ -196,8 +196,8 @@ class PrevizDialog(gui.GeDialog):
 
     @property
     def previz_project(self):
-        api_root = self.GetString(API_ROOT_EDIT)
-        api_token = self.GetString(API_TOKEN_EDIT)
+        api_root = self.settings[SETTINGS_API_ROOT]
+        api_token = self.settings[SETTINGS_API_TOKEN]
 
         global teams
         team = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
@@ -222,8 +222,8 @@ class PrevizDialog(gui.GeDialog):
     def InitValues(self):
         print 'PrevizDialog.InitValues'
 
-        self.SetString(API_ROOT_EDIT, self.settings['api_root'])
-        self.SetString(API_TOKEN_EDIT, self.settings['api_token'])
+        self.SetString(API_ROOT_EDIT, self.settings[SETTINGS_API_ROOT])
+        self.SetString(API_TOKEN_EDIT, self.settings[SETTINGS_API_TOKEN])
 
         self.RefreshUI()
 
@@ -575,8 +575,8 @@ class PrevizDialog(gui.GeDialog):
         fp.close()
 
         # Upload JSON to Previz in a thread
-        api_root = self.GetString(API_ROOT_EDIT)
-        api_token = self.GetString(API_TOKEN_EDIT)
+        api_root = self.settings[SETTINGS_API_ROOT]
+        api_token = self.settings[SETTINGS_API_TOKEN]
         project_id = self.GetInt32(PROJECT_SELECT)
         scene_id = self.GetInt32(SCENE_SELECT)
 
