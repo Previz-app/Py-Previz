@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-from tools.distutils.command import bdist_cinema4d_plugin
+from tools.distutils.command import bdist_cinema4d_plugin, rsync_cinema4d_plugin
 
 setup(
     name='Py-Previz',
@@ -31,6 +31,7 @@ setup(
     package_data={},
     data_files=[],
     cmdclass={
-        'bdist_cinema4d_plugin': bdist_cinema4d_plugin
+        'bdist_cinema4d_plugin': bdist_cinema4d_plugin,
+        'rsync_cinema4d_plugin': rsync_cinema4d_plugin
     }
 )
