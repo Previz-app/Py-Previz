@@ -28,6 +28,8 @@ __version__ = '0.0.13'
 __plugin_id__ = 938453
 __plugin_title__ = 'Previz'
 
+DEFAULT_API_ROOT = os.path.join(__website__, 'api')
+DEFAULT_API_TOKEN = ''
 
 def ids_iterator():
     for i in xrange(sys.maxint):
@@ -35,12 +37,12 @@ def ids_iterator():
 
 ids=ids_iterator()
 
+API_ROOT_LABEL = next(ids)
+API_ROOT_EDIT  = next(ids)
+
 API_TOKEN_LABEL  = next(ids)
 API_TOKEN_EDIT   = next(ids)
 API_TOKEN_BUTTON = next(ids)
-
-PREVIZ_DOMAIN_LABEL = next(ids)
-PREVIZ_DOMAIN_EDIT  = next(ids)
 
 TEAM_LABEL     = next(ids)
 TEAM_SELECT    = next(ids)
@@ -61,8 +63,8 @@ NEW_VERSION_BUTTON = next(ids)
 
 MSG_PUBLISH_DONE = __plugin_id__
 
-SETTINGS_API_TOKEN     = 'api_token'
-SETTINGS_PREVIZ_DOMAIN = 'previz_domain'
+SETTINGS_API_ROOT  = 'api_root'
+SETTINGS_API_TOKEN = 'api_token'
 
 debug_canary_path = os.path.join(os.path.dirname(__file__), 'c4d_debug.txt')
 
@@ -111,10 +113,10 @@ class Settings(object):
             os.mkdir(self.dirpath)
 
         with self.open('c') as shelf:
+            if SETTINGS_API_ROOT not in shelf:
+                shelf[SETTINGS_API_ROOT] = DEFAULT_API_ROOT
             if SETTINGS_API_TOKEN not in shelf:
-                shelf[SETTINGS_API_TOKEN] = ''
-            if SETTINGS_PREVIZ_DOMAIN not in shelf:
-                shelf[SETTINGS_PREVIZ_DOMAIN] = __website__
+                shelf[SETTINGS_API_TOKEN] = DEFAULT_API_TOKEN
 
     def __getitem__(self, key):
         with self.open('r') as shelf:
@@ -135,10 +137,6 @@ class Settings(object):
     @property
     def dirpath(self):
         return os.path.join(storage.GeGetStartupWritePath(), self.namespace)
-
-
-def get_api_root(previz_domain):
-    return os.path.join(previz_domain, 'api')
 
 
 uuids = {}
@@ -182,9 +180,9 @@ class PrevizDialog(gui.GeDialog):
         self.settings = Settings(__plugin_title__)
 
         self.commands = {
+            API_ROOT_EDIT:      self.OnAPIRootChanged,
             API_TOKEN_EDIT:     self.OnAPITokenChanged,
             API_TOKEN_BUTTON:   self.OnAPITokenButtonPressed,
-            PREVIZ_DOMAIN_EDIT: self.OnPrevizDomainChanged,
             TEAM_SELECT:        self.OnTeamSelectPressed,
             PROJECT_SELECT:     self.OnProjectSelectPressed,
             SCENE_SELECT:       self.OnSceneSelectPressed,
@@ -198,7 +196,7 @@ class PrevizDialog(gui.GeDialog):
 
     @property
     def previz_project(self):
-        api_root = get_api_root(self.GetString(PREVIZ_DOMAIN_EDIT))
+        api_root = self.GetString(API_ROOT_EDIT)
         api_token = self.GetString(API_TOKEN_EDIT)
 
         global teams
@@ -224,7 +222,7 @@ class PrevizDialog(gui.GeDialog):
     def InitValues(self):
         print 'PrevizDialog.InitValues'
 
-        self.SetString(PREVIZ_DOMAIN_EDIT, self.settings['previz_domain'])
+        self.SetString(API_ROOT_EDIT, self.settings['api_root'])
         self.SetString(API_TOKEN_EDIT, self.settings['api_token'])
 
         self.RefreshUI()
@@ -235,7 +233,7 @@ class PrevizDialog(gui.GeDialog):
         self.SetTitle(__plugin_title__)
 
         if debug:
-            self.CreatePrevizDomainLine()
+            self.CreateAPIRootLine()
 
         self.CreateAPITokenLine()
 
@@ -295,7 +293,7 @@ class PrevizDialog(gui.GeDialog):
 
         return True
 
-    def CreatePrevizDomainLine(self):
+    def CreateAPIRootLine(self):
         self.GroupBegin(id=next(ids),
                         flags=c4d.BFH_SCALEFIT,
                         cols=2,
@@ -303,11 +301,11 @@ class PrevizDialog(gui.GeDialog):
                         title='Previz',
                         groupflags=c4d.BORDER_NONE)
 
-        self.AddStaticText(id=PREVIZ_DOMAIN_LABEL,
+        self.AddStaticText(id=API_ROOT_LABEL,
                            flags=c4d.BFH_LEFT,
-                           name='Domain')
+                           name='API root')
 
-        self.AddEditText(id=PREVIZ_DOMAIN_EDIT,
+        self.AddEditText(id=API_ROOT_EDIT,
                          flags=c4d.BFH_SCALEFIT)
 
         self.GroupEnd()
@@ -398,10 +396,10 @@ class PrevizDialog(gui.GeDialog):
 
         return True
 
-    def OnPrevizDomainChanged(self, msg):
-        print 'PrevizDialog.OnPrevizDomainChanged'
-        previz_domain = self.GetString(PREVIZ_DOMAIN_EDIT)
-        self.settings[SETTINGS_PREVIZ_DOMAIN] = previz_domain
+    def OnAPIRootChanged(self, msg):
+        print 'PrevizDialog.OnAPIRootChanged'
+        api_root = self.GetString(API_ROOT_EDIT)
+        self.settings[SETTINGS_API_ROOT] = api_root
 
     def OnAPITokenChanged(self, msg):
         print 'PrevizDialog.OnAPITokenChanged'
@@ -577,7 +575,7 @@ class PrevizDialog(gui.GeDialog):
         fp.close()
 
         # Upload JSON to Previz in a thread
-        api_root = get_api_root(self.GetString(PREVIZ_DOMAIN_EDIT))
+        api_root = self.GetString(API_ROOT_EDIT)
         api_token = self.GetString(API_TOKEN_EDIT)
         project_id = self.GetInt32(PROJECT_SELECT)
         scene_id = self.GetInt32(SCENE_SELECT)
