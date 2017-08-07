@@ -1,13 +1,18 @@
 Previz Cinema4D integration
 ===========================
 
+Note
+----
+
+This plugin requires a Python 2 development environment.
+
 
 Development
 -----------
 
 * Create and activate a virtual environment:
 ``` sh
-$ pyvenv-3.5 env
+$ virtualenv env
 $ source env/bin/activate
 (env) $
 ```
@@ -32,7 +37,7 @@ Release
 
 ```sh
 # Build from a clean virtual env
-$ pyvenv-3.5 env
+$ virtualenv env
 $ source env/bin/activate
 
 # Install the dependencies
