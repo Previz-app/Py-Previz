@@ -147,6 +147,11 @@ def get_id_for_uuids(uuid):
     uuids[uuid] = id
     return id
 
+def get_uuid_for_id(id_to_find):
+    for uuid, id in uuids.items():
+        if id_to_find == id:
+            return uuid
+
 
 def extract(data, next_name = None):
     ret = {
@@ -580,8 +585,11 @@ class PrevizDialog(gui.GeDialog):
         project_id = self.GetInt32(PROJECT_SELECT)
         scene_id = self.GetInt32(SCENE_SELECT)
 
+        project_uuid = get_uuid_for_id(project_id)
+        scene_uuid = get_uuid_for_id(scene_id)
+
         global publisher_thread
-        publisher_thread = PublisherThread(api_root, api_token, project_id, scene_id, path)
+        publisher_thread = PublisherThread(api_root, api_token, project_uuid, scene_uuid, path)
         publisher_thread.Start()
 
         # Notify user of success
@@ -830,20 +838,22 @@ def BuildPrevizScene():
 
 
 class PublisherThread(threading.C4DThread):
-    def __init__(self, api_root, api_token, project_id, scene_id, path):
+    def __init__(self, api_root, api_token, project_uuid, scene_uuid, path):
         self.api_root = api_root
         self.api_token = api_token
-        self.project_id = project_id
-        self.scene_id = scene_id
+        self.project_uuid = project_uuid
+        self.scene_uuid = scene_uuid
         self.path = path
 
     def Main(self):
         p = previz.PrevizProject(self.api_root,
                                  self.api_token,
-                                 self.project_id)
+                                 self.project_uuid)
+        scene = p.scene(self.scene_uuid, include=[])
+        json_url = scene['jsonUrl']
         with open(self.path, 'rb') as fp:
             print 'START upload'
-            p.update_scene(self.scene_id, 'SceneUpload.json', fp)
+            p.update_scene(json_url, fp)
             print 'STOP upload'
         c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
 
