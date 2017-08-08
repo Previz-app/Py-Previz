@@ -5,6 +5,7 @@ import shelve
 import sys
 import tempfile
 import time
+import urlparse
 import webbrowser
 
 import c4d
@@ -413,7 +414,10 @@ class PrevizDialog(gui.GeDialog):
 
     def OnAPITokenButtonPressed(self, msg):
         print 'PrevizDialog.OnAPITokenButtonPressed', msg
-        webbrowser.open('https://app.previz.co/settings#/api')
+        api_root = self.settings[SETTINGS_API_ROOT]
+        s = urlparse.urlsplit(api_root)
+        url = urlparse.urlunsplit((s.scheme, s.netloc, '/account/api', '', ''))
+        webbrowser.open(url)
 
     def OnTeamSelectPressed(self, msg):
         print 'PrevizDialog.OnTeamSelectPressed', msg
