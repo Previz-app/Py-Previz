@@ -24,7 +24,7 @@ import previz
 __author__ = 'Previz'
 __website__ = 'https://app.previz.co'
 __email__ = 'info@previz.co'
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 __plugin_id__ = 938453
 __plugin_title__ = 'Previz'
