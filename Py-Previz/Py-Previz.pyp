@@ -29,7 +29,7 @@ __version__ = '1.0.1'
 __plugin_id__ = 938453
 __plugin_title__ = 'Previz'
 
-DEFAULT_API_ROOT = os.path.join(__website__, 'api')
+DEFAULT_API_ROOT = __website__ + '/api'
 DEFAULT_API_TOKEN = ''
 
 def ids_iterator():
