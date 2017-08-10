@@ -238,8 +238,7 @@ class PrevizDialog(gui.GeDialog):
     def CreateLayout(self):
         self.SetTitle(__plugin_title__)
 
-        if debug:
-            self.CreateAPIRootLine()
+        self.CreateAPIRootLine()
 
         self.CreateAPITokenLine()
 
