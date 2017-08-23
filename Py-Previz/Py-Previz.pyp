@@ -52,7 +52,6 @@ PROJECT_LABEL  = next(ids)
 PROJECT_SELECT = next(ids)
 SCENE_LABEL    = next(ids)
 SCENE_SELECT   = next(ids)
-SCENE_SPACER   = next(ids)
 
 PROJECT_NEW_EDIT   = next(ids)
 PROJECT_NEW_BUTTON = next(ids)
@@ -262,18 +261,6 @@ class PrevizDialog(gui.GeDialog):
 
         self.GroupBegin(id=next(ids),
                         flags=c4d.BFH_SCALEFIT,
-                        cols=2,
-                        title='Previz',
-                        groupflags=c4d.BORDER_NONE)
-
-        self.CreateNewSceneLine()
-
-        self.GroupEnd()
-
-        self.AddSeparatorH(1)
-
-        self.GroupBegin(id=next(ids),
-                        flags=c4d.BFH_SCALEFIT,
                         cols=3,
                         rows=1,
                         title='Actions',
@@ -366,13 +353,6 @@ class PrevizDialog(gui.GeDialog):
                            name='Scene')
 
         self.AddComboBox(id=SCENE_SELECT,
-                         flags=c4d.BFH_SCALEFIT)
-
-        self.AddStaticText(id=SCENE_SPACER,
-                           flags=c4d.BFH_SCALEFIT)
-
-    def CreateNewSceneLine(self):
-        self.AddEditText(id=SCENE_NEW_EDIT,
                          flags=c4d.BFH_SCALEFIT)
 
         self.AddButton(id=SCENE_NEW_BUTTON,
@@ -540,7 +520,11 @@ class PrevizDialog(gui.GeDialog):
 
         # New scene
 
-        scene_name = self.GetString(SCENE_NEW_EDIT)
+        scene_name = c4d.gui.InputDialog('New scene name')
+
+        if len(scene_name) == 0:
+            return
+
         scene = self.previz_project.new_scene(scene_name)
         self.refresh_all()
 
@@ -633,9 +617,7 @@ class PrevizDialog(gui.GeDialog):
         scene_name = self.GetString(SCENE_NEW_EDIT)
         scene_name_is_valid = len(scene_name) > 0
 
-        self.Enable(SCENE_NEW_BUTTON,
-                    project_id_is_valid \
-                    and scene_name_is_valid)
+        self.Enable(SCENE_NEW_BUTTON, project_id_is_valid)
 
     def RefreshRefreshButton(self):
         api_token = self.GetString(API_TOKEN_EDIT)
