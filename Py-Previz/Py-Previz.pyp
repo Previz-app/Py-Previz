@@ -26,7 +26,7 @@ __website__ = 'https://app.previz.co'
 __email__ = 'info@previz.co'
 __version__ = '1.0.2'
 
-__plugin_id__ = 938453
+__plugin_id__ = 1039782
 __plugin_title__ = 'Previz'
 
 DEFAULT_API_ROOT = __website__ + '/api'
