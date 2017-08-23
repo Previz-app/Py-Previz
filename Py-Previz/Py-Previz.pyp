@@ -612,6 +612,7 @@ class PrevizDialog(c4d.gui.GeDialog):
         self.RefreshSceneComboBox()
 
     def OnSceneSelectPressed(self, msg):
+        pass
 
     def OnRefreshButtonPressed(self, msg):
         self.refresh_all()
@@ -1029,12 +1030,9 @@ class PublisherThread(c4d.threading.C4DThread):
             print 'STOP upload'
         c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
 
+
 publisher_thread = None
 
-def make_callback(text):
-    def func(msg):
-        print text
-    return func
 
 def make_terminate_thread_callback(text):
     def func(msg):
@@ -1042,23 +1040,18 @@ def make_terminate_thread_callback(text):
         terminate_current_thread()
     return func
 
+
 plugin_messages = {
-    c4d.C4DPL_STARTACTIVITY:       make_callback('C4DPL_STARTACTIVITY'),
     c4d.C4DPL_ENDACTIVITY:         make_terminate_thread_callback('C4DPL_ENDACTIVITY'),
     c4d.C4DPL_RELOADPYTHONPLUGINS: make_terminate_thread_callback('C4DPL_RELOADPYTHONPLUGINS'),
-    c4d.C4DPL_COMMANDLINEARGS:     make_callback('C4DPL_COMMANDLINEARGS'),
-    c4d.C4DPL_BUILDMENU:           make_callback('C4DPL_BUILDMENU'),
-    c4d.C4DPL_ENDPROGRAM:          make_terminate_thread_callback('C4DPL_ENDPROGRAM'),
-    c4d.C4DPL_PROGRAM_STARTED:     make_callback('C4DPL_PROGRAM_STARTED')
+    c4d.C4DPL_ENDPROGRAM:          make_terminate_thread_callback('C4DPL_ENDPROGRAM')
 }
 
 
 def PluginMessage(id, data):
-    cb = plugin_messages.get(id)
-    if cb is None:
-        return False
-    cb(data)
-    return True
+    cb = plugin_messages.get(id, lambda msg: True)
+    return cb(data)
+
 
 if __name__ == '__main__':
     if debug:
