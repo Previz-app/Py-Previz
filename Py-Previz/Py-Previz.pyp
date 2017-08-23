@@ -9,7 +9,7 @@ import urlparse
 import webbrowser
 
 import c4d
-from c4d import documents, gui, plugins, storage, threading
+from c4d import threading
 
 # Add locale module path
 local_modules_path = os.path.join(os.path.dirname(__file__),
@@ -62,6 +62,10 @@ REFRESH_BUTTON = next(ids)
 EXPORT_BUTTON  = next(ids)
 PUBLISH_BUTTON = next(ids)
 NEW_VERSION_BUTTON = next(ids)
+
+DEBUG_BUTTON_SUCCESS = next(ids)
+DEBUG_BUTTON_CANCEL  = next(ids)
+DEBUG_BUTTON_RAISE   = next(ids)
 
 MSG_PUBLISH_DONE = __plugin_id__
 
@@ -138,7 +142,7 @@ class Settings(object):
 
     @property
     def dirpath(self):
-        return os.path.join(storage.GeGetStartupWritePath(), self.namespace)
+        return os.path.join(c4d.storage.GeGetStartupWritePath(), self.namespace)
 
 
 uuids = {}
@@ -182,7 +186,46 @@ def extract_all(teams_data):
     return teams
 
 
-class PrevizDialog(gui.GeDialog):
+import time
+
+current_thread = None
+
+class TestThread(c4d.threading.C4DThread):
+    def __init__(self, success_timeout = 999, raise_timeout = 999):
+        #c4d.threading.C4DThread.__init__(self)
+
+        self.success_timeout = success_timeout
+        self.raise_timeout = raise_timeout
+
+    def Main(self):
+        print 'TestThread.Main: START'
+        return
+        #import time
+        #t0 = time.time()
+        #st = self.success_timeout / 100.0
+
+        #while True:
+            #time.sleep(st)
+
+            #dt = time.time() - t0
+
+            #if self.TestBreak():
+                #print 'TestThread.Main: Break'
+                #return
+
+            #if dt > self.raise_timeout:
+                #print 'TestThread.Main: Raise'
+                #raise RuntimeError('TestThread reached raise_timeout')
+
+            #if dt > self.success_timeout:
+                #print 'TestThread.Main: Success'
+                #c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
+                #return
+
+            ## send progress
+
+
+class PrevizDialog(c4d.gui.GeDialog):
     def __init__(self):
         self.settings = Settings(__plugin_title__)
 
@@ -198,8 +241,30 @@ class PrevizDialog(gui.GeDialog):
             REFRESH_BUTTON:     self.OnRefreshButtonPressed,
             EXPORT_BUTTON:      self.OnExportButtonPressed,
             PUBLISH_BUTTON:     self.OnPublishButtonPressed,
-            NEW_VERSION_BUTTON: self.OnNewVersionButtonPressed
+            NEW_VERSION_BUTTON: self.OnNewVersionButtonPressed,
+
+            DEBUG_BUTTON_SUCCESS: self.OnDebugButtonSuccessPressed,
+            DEBUG_BUTTON_CANCEL:  self.OnDebugButtonCancelPressed,
+            DEBUG_BUTTON_RAISE:   self.OnDebugButtonRaisePressed
         }
+
+    def OnDebugButtonSuccessPressed(self, msg):
+        print 'PrevizDialog.OnDebugButtonSuccessPressed'
+        global current_thread
+        current_thread = TestThread(success_timeout=1.0)
+        current_thread.Start()
+
+    def OnDebugButtonCancelPressed(self, msg):
+        print 'PrevizDialog.OnDebugButtonCancelPressed'
+        global current_thread
+        current_thread = TestThread()
+        current_thread.Start()
+
+    def OnDebugButtonRaisePressed(self, msg):
+        print 'PrevizDialog.OnDebugButtonRaisePressed'
+        global current_thread
+        current_thread = TestThread(raise_timeout=1.0)
+        current_thread.Start()
 
     @property
     def previz_project(self):
@@ -301,9 +366,33 @@ class PrevizDialog(gui.GeDialog):
 
         self.GroupEnd()
 
+        self.CreateDebugLine()
+
         self.GroupEnd() # Wrapper
 
         return True
+
+    def CreateDebugLine(self):
+        self.GroupBegin(id=next(ids),
+                        flags=c4d.BFH_SCALEFIT,
+                        cols=3,
+                        rows=1,
+                        title='Previz',
+                        groupflags=c4d.BORDER_NONE)
+
+        self.AddButton(id=DEBUG_BUTTON_SUCCESS,
+                       flags=c4d.BFH_SCALEFIT,
+                       name='Debug success')
+
+        self.AddButton(id=DEBUG_BUTTON_CANCEL,
+                       flags=c4d.BFH_SCALEFIT,
+                       name='Debug cancel')
+
+        self.AddButton(id=DEBUG_BUTTON_RAISE,
+                       flags=c4d.BFH_SCALEFIT,
+                       name='Debug raise')
+
+        self.GroupEnd()
 
     def CreateAPIRootLine(self):
         self.GroupBegin(id=next(ids),
@@ -380,12 +469,12 @@ class PrevizDialog(gui.GeDialog):
                        name='New scene')
 
     def CoreMessage(self, id, msg):
-        if id != MSG_PUBLISH_DONE:
-            return gui.GeDialog.CoreMessage(self, id, msg)
+        if id == MSG_PUBLISH_DONE:
+            print 'PrevizDialog.CoreMessage', id, id == __plugin_id__, msg
+            self.RefreshUI()
+            return True
 
-        print 'PrevizDialog.CoreMessage', id, id == __plugin_id__
-        self.RefreshUI()
-        return True
+        return c4d.gui.GeDialog.CoreMessage(self, id, msg)
 
     def Command(self, id, msg):
         print 'PrevizDialog.Command', id, msg
@@ -686,7 +775,7 @@ class PrevizDialog(gui.GeDialog):
         self.LayoutChanged(NEW_VERSION_BUTTON)
 
 
-class PrevizCommandData(plugins.CommandData):
+class PrevizCommandData(c4d.plugins.CommandData):
     dialog = None
 
     def Execute(self, doc):
@@ -846,7 +935,7 @@ def BuildPrevizScene():
     print '---- END', 'BuildPrevizScene'
 
 
-class PublisherThread(threading.C4DThread):
+class PublisherThread(c4d.threading.C4DThread):
     def __init__(self, api_root, api_token, project_uuid, scene_uuid, path):
         self.api_root = api_root
         self.api_token = api_token
@@ -896,7 +985,7 @@ if __name__ == '__main__':
     if debug:
         print 'DEBUG MODE as this file exists:', debug_canary_path
     print 'Registering PrevizCommandData'
-    plugins.RegisterCommandPlugin(id=__plugin_id__,
+    c4d.plugins.RegisterCommandPlugin(id=__plugin_id__,
                                   str='Py-Previz',
                                   help='Py - Previz',
                                   info=0,
