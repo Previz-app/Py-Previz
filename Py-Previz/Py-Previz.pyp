@@ -260,18 +260,18 @@ class PrevizDialog(gui.GeDialog):
         self.AddSeparatorH(1)
 
         self.GroupBegin(id=next(ids),
-                        flags=c4d.BFH_SCALEFIT,
+                        flags=c4d.BFH_RIGHT,
                         cols=3,
                         rows=1,
                         title='Actions',
                         groupflags=c4d.BORDER_NONE)
 
         self.AddButton(id=EXPORT_BUTTON,
-                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
+                       flags=c4d.BFH_RIGHT,
                        name='Export to file')
 
         self.AddButton(id=PUBLISH_BUTTON,
-                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
+                       flags=c4d.BFH_RIGHT,
                        name='Publish to Previz')
 
         self.GroupEnd()
@@ -329,7 +329,7 @@ class PrevizDialog(gui.GeDialog):
                          flags=c4d.BFH_SCALEFIT)
 
         self.AddButton(id=REFRESH_BUTTON,
-                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
+                       flags=c4d.BFH_FIT,
                        name='Refresh')
 
     def CreateProjectLine(self):
