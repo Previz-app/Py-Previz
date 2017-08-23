@@ -47,10 +47,12 @@ API_TOKEN_BUTTON = next(ids)
 
 TEAM_LABEL     = next(ids)
 TEAM_SELECT    = next(ids)
+TEAM_SPACER    = next(ids)
 PROJECT_LABEL  = next(ids)
 PROJECT_SELECT = next(ids)
 SCENE_LABEL    = next(ids)
 SCENE_SELECT   = next(ids)
+SCENE_SPACER   = next(ids)
 
 PROJECT_NEW_EDIT   = next(ids)
 PROJECT_NEW_BUTTON = next(ids)
@@ -246,7 +248,7 @@ class PrevizDialog(gui.GeDialog):
 
         self.GroupBegin(id=next(ids),
                         flags=c4d.BFH_SCALEFIT,
-                        cols=2,
+                        cols=3,
                         title='Previz',
                         groupflags=c4d.BORDER_NONE)
 
@@ -264,7 +266,6 @@ class PrevizDialog(gui.GeDialog):
                         title='Previz',
                         groupflags=c4d.BORDER_NONE)
 
-        self.CreateNewProjectLine()
         self.CreateNewSceneLine()
 
         self.GroupEnd()
@@ -344,6 +345,9 @@ class PrevizDialog(gui.GeDialog):
         self.AddComboBox(id=TEAM_SELECT,
                          flags=c4d.BFH_SCALEFIT)
 
+        self.AddStaticText(id=TEAM_SPACER,
+                           flags=c4d.BFH_SCALEFIT)
+
     def CreateProjectLine(self):
         self.AddStaticText(id=PROJECT_LABEL,
                            flags=c4d.BFH_LEFT,
@@ -351,6 +355,10 @@ class PrevizDialog(gui.GeDialog):
 
         self.AddComboBox(id=PROJECT_SELECT,
                          flags=c4d.BFH_SCALEFIT)
+
+        self.AddButton(id=PROJECT_NEW_BUTTON,
+                       flags=c4d.BFH_FIT,
+                       name='New project')
 
     def CreateSceneLine(self):
         self.AddStaticText(id=SCENE_LABEL,
@@ -360,13 +368,8 @@ class PrevizDialog(gui.GeDialog):
         self.AddComboBox(id=SCENE_SELECT,
                          flags=c4d.BFH_SCALEFIT)
 
-    def CreateNewProjectLine(self):
-        self.AddEditText(id=PROJECT_NEW_EDIT,
-                         flags=c4d.BFH_SCALEFIT)
-
-        self.AddButton(id=PROJECT_NEW_BUTTON,
-                       flags=c4d.BFH_FIT,
-                       name='New project')
+        self.AddStaticText(id=SCENE_SPACER,
+                           flags=c4d.BFH_SCALEFIT)
 
     def CreateNewSceneLine(self):
         self.AddEditText(id=SCENE_NEW_EDIT,
@@ -505,10 +508,14 @@ class PrevizDialog(gui.GeDialog):
     def OnProjectNewButtonPressed(self, msg):
         print 'PrevizDialog.OnProjectNewButtonPressed', msg
 
+        project_name = c4d.gui.InputDialog('New project name')
+
+        if len(project_name) == 0:
+            return
+
         # New project
         global teams
         team_uuid = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))['uuid']
-        project_name = self.GetString(PROJECT_NEW_EDIT)
         project = self.previz_project.new_project(project_name, team_uuid)
         self.refresh_all()
 
@@ -617,9 +624,7 @@ class PrevizDialog(gui.GeDialog):
         project_name = self.GetString(PROJECT_NEW_EDIT)
         project_name_is_valid = len(project_name) > 0
 
-        self.Enable(PROJECT_NEW_BUTTON,
-                    team_id_is_valid \
-                    and project_name_is_valid)
+        self.Enable(PROJECT_NEW_BUTTON, team_id_is_valid)
 
     def RefreshSceneNewButton(self):
         project_id = self.GetInt32(PROJECT_SELECT)
