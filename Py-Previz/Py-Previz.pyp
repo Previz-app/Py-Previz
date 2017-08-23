@@ -239,12 +239,6 @@ class PrevizDialog(gui.GeDialog):
     def CreateLayout(self):
         self.SetTitle(__plugin_title__)
 
-        self.CreateAPIRootLine()
-
-        self.CreateAPITokenLine()
-
-        self.AddSeparatorH(1)
-
         self.GroupBegin(id=next(ids),
                         flags=c4d.BFH_SCALEFIT,
                         cols=3,
@@ -260,11 +254,32 @@ class PrevizDialog(gui.GeDialog):
         self.AddSeparatorH(1)
 
         self.GroupBegin(id=next(ids),
-                        flags=c4d.BFH_RIGHT,
-                        cols=3,
+                        flags=c4d.BFH_SCALEFIT | c4d.BFV_SCALEFIT,
+                        cols=1,
+                        title='Previz',
+                        groupflags=c4d.BORDER_NONE)
+
+        self.CreateAPIRootLine()
+        self.CreateAPITokenLine()
+
+        self.GroupEnd()
+
+        self.AddSeparatorH(1)
+
+        self.GroupBegin(id=next(ids),
+                        flags=c4d.BFH_SCALEFIT,
+                        cols=4,
                         rows=1,
                         title='Actions',
                         groupflags=c4d.BORDER_NONE)
+
+        self.AddButton(id=NEW_VERSION_BUTTON,
+                       flags=c4d.BFH_LEFT,
+                       name='') # defined in RefreshNewVersionButton
+
+        self.AddStaticText(id=next(ids),
+                           flags=c4d.BFH_SCALEFIT,
+                           name='')
 
         self.AddButton(id=EXPORT_BUTTON,
                        flags=c4d.BFH_RIGHT,
@@ -275,10 +290,6 @@ class PrevizDialog(gui.GeDialog):
                        name='Publish to Previz')
 
         self.GroupEnd()
-
-        self.AddButton(id=NEW_VERSION_BUTTON,
-                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
-                       name='') # defined in RefreshNewVersionButton
 
         return True
 
@@ -660,6 +671,7 @@ class PrevizDialog(gui.GeDialog):
 
         self.SetString(NEW_VERSION_BUTTON, text)
         self.Enable(NEW_VERSION_BUTTON, enable)
+        self.LayoutChanged(NEW_VERSION_BUTTON)
 
 
 class PrevizCommandData(plugins.CommandData):
@@ -668,9 +680,7 @@ class PrevizCommandData(plugins.CommandData):
     def Execute(self, doc):
         self.init_dialog_if_needed()
         return self.dialog.Open(dlgtype=c4d.DLG_TYPE_ASYNC,
-                                pluginid=__plugin_id__,
-                                defaultw=250,
-                                defaulth=50)
+                                pluginid=__plugin_id__)
 
     def RestoreLayout(self, sec_ref):
         self.init_dialog_if_needed()
