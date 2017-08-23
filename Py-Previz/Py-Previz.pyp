@@ -266,10 +266,6 @@ class PrevizDialog(gui.GeDialog):
                         title='Actions',
                         groupflags=c4d.BORDER_NONE)
 
-        self.AddButton(id=REFRESH_BUTTON,
-                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
-                       name='Refresh')
-
         self.AddButton(id=EXPORT_BUTTON,
                        flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
                        name='Export to file')
@@ -332,8 +328,9 @@ class PrevizDialog(gui.GeDialog):
         self.AddComboBox(id=TEAM_SELECT,
                          flags=c4d.BFH_SCALEFIT)
 
-        self.AddStaticText(id=TEAM_SPACER,
-                           flags=c4d.BFH_SCALEFIT)
+        self.AddButton(id=REFRESH_BUTTON,
+                       flags=c4d.BFH_SCALEFIT | c4d.BFV_BOTTOM,
+                       name='Refresh')
 
     def CreateProjectLine(self):
         self.AddStaticText(id=PROJECT_LABEL,
