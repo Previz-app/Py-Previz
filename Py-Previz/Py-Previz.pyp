@@ -1,4 +1,5 @@
 import contextlib
+import ctypes
 import os
 import os.path
 import shelve
@@ -185,10 +186,24 @@ def extract_all(teams_data):
                 scenes.append(scene)
     return teams
 
-
+import random
 import time
 
 current_thread = None
+
+def unpack_message(msg):
+    # charlesfleche 2017-08-23
+    # This is not documented in the SDK doc, but in the forums:
+    # http://www.plugincafe.com/forum/forum_posts.asp?TID=10538
+    # http://www.plugincafe.com/forum/forum_posts.asp?TID=7564
+    # http://www.plugincafe.com/forum/forum_posts.asp?TID=10712
+    def from_PyCObject(v):
+        ctypes.pythonapi.PyCObject_AsVoidPtr.restype = ctypes.c_void_p
+        ctypes.pythonapi.PyCObject_AsVoidPtr.argtypes = [ctypes.py_object]
+        return ctypes.pythonapi.PyCObject_AsVoidPtr(v)
+
+    return from_PyCObject(msg[c4d.BFM_CORE_PAR1]), from_PyCObject(msg[c4d.BFM_CORE_PAR2])
+
 
 class TestThread(c4d.threading.C4DThread):
     def __init__(self, success_timeout = 999, raise_timeout = 999):
@@ -470,7 +485,7 @@ class PrevizDialog(c4d.gui.GeDialog):
 
     def CoreMessage(self, id, msg):
         if id == MSG_PUBLISH_DONE:
-            print 'PrevizDialog.CoreMessage', id, id == __plugin_id__, msg
+            print 'PrevizDialog.CoreMessage', id, id == __plugin_id__, unpack_message(msg)
             self.RefreshUI()
             return True
 
