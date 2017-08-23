@@ -66,6 +66,7 @@ NEW_VERSION_BUTTON = next(ids)
 
 DEBUG_BUTTON_SUCCESS = next(ids)
 DEBUG_BUTTON_CANCEL  = next(ids)
+DEBUG_BUTTON_CANCEL_CURRENT = next(ids)
 DEBUG_BUTTON_RAISE   = next(ids)
 
 MSG_PUBLISH_DONE = __plugin_id__
@@ -198,12 +199,14 @@ def get_current_thread():
 
 def set_current_thread(t):
     global current_thread
+    if is_task_running():
+        raise RuntimeError('A thread is already running')
     current_thread = t
 
 def register_and_start_current_thread(thread, status_text):
+    set_current_thread(thread)
     c4d.StatusSetText(status_text)
     c4d.StatusSetSpin()
-    set_current_thread(thread)
     thread.Start()
 
 def unregister_current_thread():
@@ -214,6 +217,15 @@ def unregister_current_thread():
 def is_task_running():
     t = get_current_thread()
     return t is not None and t.IsRunning()
+
+def terminate_current_thread():
+    print 'Terminating current thread', is_task_running()
+    if not is_task_running():
+        return
+
+    t = get_current_thread()
+    t.End(wait=True)
+    print 'Terminated current thread'
 
 
 def unpack_message(msg):
@@ -229,10 +241,12 @@ def unpack_message(msg):
 
     return from_PyCObject(msg[c4d.BFM_CORE_PAR1]), from_PyCObject(msg[c4d.BFM_CORE_PAR2])
 
-TASK_DONE = 101
+TASK_DONE          = next(ids)
+TASK_PROGRESS      = next(ids)
+TASK_PROGRESS_SPIN = next(ids)
 
 class TestThread(c4d.threading.C4DThread):
-    def __init__(self, success_timeout = 999, raise_timeout = 999):
+    def __init__(self, success_timeout = None, raise_timeout = None):
         #c4d.threading.C4DThread.__init__(self)
 
         self.success_timeout = success_timeout
@@ -254,26 +268,30 @@ class TestThread(c4d.threading.C4DThread):
         t0 = time.time()
 
         while True:
-            st = random.random()*.25
+            st = random.random()*1.0
             time.sleep(st)
 
             dt = time.time() - t0
 
             if self.TestBreak():
                 print 'TestThread.Main: Break'
-                return
-
-            if dt > self.raise_timeout:
-                print 'TestThread.Main: Raise'
-                raise RuntimeError('TestThread reached raise_timeout')
-
-            if dt > self.success_timeout:
-                print 'TestThread.Main: Success'
                 c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
                 return
 
-            p = progress(self.success_timeout, dt)
-            c4d.SpecialEventAdd(MSG_PUBLISH_DONE, p)
+            if self.raise_timeout is not None and dt > self.raise_timeout:
+                print 'TestThread.Main: Raise'
+                raise RuntimeError('TestThread reached raise_timeout')
+
+            if self.success_timeout is not None:
+                if dt > self.success_timeout:
+                    print 'TestThread.Main: Success'
+                    c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
+                    return
+
+                p = progress(self.success_timeout, dt)
+                c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_PROGRESS, p)
+            else:
+                c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_PROGRESS_SPIN)
 
 
 class PrevizDialog(c4d.gui.GeDialog):
@@ -296,6 +314,7 @@ class PrevizDialog(c4d.gui.GeDialog):
 
             DEBUG_BUTTON_SUCCESS: self.OnDebugButtonSuccessPressed,
             DEBUG_BUTTON_CANCEL:  self.OnDebugButtonCancelPressed,
+            DEBUG_BUTTON_CANCEL_CURRENT: self.OnDebugButtonCancelCurrentPressed,
             DEBUG_BUTTON_RAISE:   self.OnDebugButtonRaisePressed
         }
 
@@ -312,6 +331,10 @@ class PrevizDialog(c4d.gui.GeDialog):
             TestThread(),
             'Test cancel'
         )
+
+    def OnDebugButtonCancelCurrentPressed(self, msg):
+        print 'PrevizDialog.OnDebugButtonCancelCurrentPressed'
+        terminate_current_thread()
 
     def OnDebugButtonRaisePressed(self, msg):
         print 'PrevizDialog.OnDebugButtonRaisePressed'
@@ -429,7 +452,7 @@ class PrevizDialog(c4d.gui.GeDialog):
     def CreateDebugLine(self):
         self.GroupBegin(id=next(ids),
                         flags=c4d.BFH_SCALEFIT,
-                        cols=3,
+                        cols=4,
                         rows=1,
                         title='Previz',
                         groupflags=c4d.BORDER_NONE)
@@ -441,6 +464,10 @@ class PrevizDialog(c4d.gui.GeDialog):
         self.AddButton(id=DEBUG_BUTTON_CANCEL,
                        flags=c4d.BFH_SCALEFIT,
                        name='Debug cancel')
+
+        self.AddButton(id=DEBUG_BUTTON_CANCEL_CURRENT,
+                       flags=c4d.BFH_SCALEFIT,
+                       name='Cancel')
 
         self.AddButton(id=DEBUG_BUTTON_RAISE,
                        flags=c4d.BFH_SCALEFIT,
@@ -524,15 +551,20 @@ class PrevizDialog(c4d.gui.GeDialog):
 
     def CoreMessage(self, id, msg):
         if id == MSG_PUBLISH_DONE:
-            v1, v2 = unpack_message(msg)
+            type, value = unpack_message(msg)
 
-            if v1 == TASK_DONE:
+            if type == TASK_DONE:
                 unregister_current_thread()
                 self.RefreshUI()
                 return True
 
-            progress = v1
-            c4d.StatusSetBar(progress)
+            if type == TASK_PROGRESS:
+                print 'TASK_PROGRESS', value
+                c4d.StatusSetBar(value)
+
+            if type == TASK_PROGRESS_SPIN:
+                print 'TASK_PROGRESS_SPIN'
+                c4d.StatusSetSpin()
 
         return c4d.gui.GeDialog.CoreMessage(self, id, msg)
 
@@ -1019,17 +1051,23 @@ class PublisherThread(c4d.threading.C4DThread):
 publisher_thread = None
 
 def make_callback(text):
-    def func(data):
+    def func(msg):
         print text
+    return func
+
+def make_terminate_thread_callback(text):
+    def func(msg):
+        print text
+        terminate_current_thread()
     return func
 
 plugin_messages = {
     c4d.C4DPL_STARTACTIVITY:       make_callback('C4DPL_STARTACTIVITY'),
-    c4d.C4DPL_ENDACTIVITY:         make_callback('C4DPL_ENDACTIVITY'),
-    c4d.C4DPL_RELOADPYTHONPLUGINS: make_callback('C4DPL_RELOADPYTHONPLUGINS'),
+    c4d.C4DPL_ENDACTIVITY:         make_terminate_thread_callback('C4DPL_ENDACTIVITY'),
+    c4d.C4DPL_RELOADPYTHONPLUGINS: make_terminate_thread_callback('C4DPL_RELOADPYTHONPLUGINS'),
     c4d.C4DPL_COMMANDLINEARGS:     make_callback('C4DPL_COMMANDLINEARGS'),
     c4d.C4DPL_BUILDMENU:           make_callback('C4DPL_BUILDMENU'),
-    c4d.C4DPL_ENDPROGRAM:          make_callback('C4DPL_ENDPROGRAM'),
+    c4d.C4DPL_ENDPROGRAM:          make_terminate_thread_callback('C4DPL_ENDPROGRAM'),
     c4d.C4DPL_PROGRAM_STARTED:     make_callback('C4DPL_PROGRAM_STARTED')
 }
 
