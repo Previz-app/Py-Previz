@@ -328,25 +328,21 @@ class PrevizDialog(c4d.gui.GeDialog):
         }
 
     def OnDebugButtonSuccessPressed(self, msg):
-        print 'PrevizDialog.OnDebugButtonSuccessPressed'
         register_and_start_current_thread(
             TestThread(success_timeout=5.0),
             'Test success'
         )
 
     def OnDebugButtonCancelPressed(self, msg):
-        print 'PrevizDialog.OnDebugButtonCancelPressed'
         register_and_start_current_thread(
             TestThread(),
             'Test cancel'
         )
 
     def OnDebugButtonCancelCurrentPressed(self, msg):
-        print 'PrevizDialog.OnDebugButtonCancelCurrentPressed'
         terminate_current_thread()
 
     def OnDebugButtonRaisePressed(self, msg):
-        print 'PrevizDialog.OnDebugButtonRaisePressed'
         register_and_start_current_thread(
             TestThread(raise_timeout=1.0),
             'Test raise'
@@ -378,8 +374,6 @@ class PrevizDialog(c4d.gui.GeDialog):
         self.RefreshNewVersionButton()
 
     def InitValues(self):
-        print 'PrevizDialog.InitValues'
-
         self.SetString(API_ROOT_EDIT, self.settings[SETTINGS_API_ROOT])
         self.SetString(API_TOKEN_EDIT, self.settings[SETTINGS_API_TOKEN])
 
@@ -583,8 +577,6 @@ class PrevizDialog(c4d.gui.GeDialog):
         return c4d.gui.GeDialog.CoreMessage(self, id, msg)
 
     def Command(self, id, msg):
-        print 'PrevizDialog.Command', id, msg
-
         # Refresh the UI so the user has immediate feedback
         self.RefreshUI()
 
@@ -600,35 +592,28 @@ class PrevizDialog(c4d.gui.GeDialog):
         return True
 
     def OnAPIRootChanged(self, msg):
-        print 'PrevizDialog.OnAPIRootChanged'
         api_root = self.GetString(API_ROOT_EDIT)
         self.settings[SETTINGS_API_ROOT] = api_root
 
     def OnAPITokenChanged(self, msg):
-        print 'PrevizDialog.OnAPITokenChanged'
         token = self.GetString(API_TOKEN_EDIT)
         self.settings[SETTINGS_API_TOKEN] = token
 
     def OnAPITokenButtonPressed(self, msg):
-        print 'PrevizDialog.OnAPITokenButtonPressed', msg
         api_root = self.settings[SETTINGS_API_ROOT]
         s = urlparse.urlsplit(api_root)
         url = urlparse.urlunsplit((s.scheme, s.netloc, '/account/api', '', ''))
         webbrowser.open(url)
 
     def OnTeamSelectPressed(self, msg):
-        print 'PrevizDialog.OnTeamSelectPressed', msg
         self.RefreshTeamComboBox()
 
     def OnProjectSelectPressed(self, msg):
-        print 'PrevizDialog.OnProjectSelectPressed', msg
         self.RefreshSceneComboBox()
 
     def OnSceneSelectPressed(self, msg):
-        print 'PrevizDialog.OnSceneSelectPressed', msg
 
     def OnRefreshButtonPressed(self, msg):
-        print 'PrevizDialog.OnRefreshButtonPressed', msg
         self.refresh_all()
 
     def set_default_id_if_needed(self, id, iterable):
@@ -637,8 +622,6 @@ class PrevizDialog(c4d.gui.GeDialog):
             self.SetInt32(id, v)
 
     def RefreshTeamComboBox(self):
-        print 'PrevizDialog.RefreshTeamComboBox'
-
         with Restore(self.GetInt32, self.SetInt32, TEAM_SELECT) as touch:
             self.FreeChildren(TEAM_SELECT)
 
@@ -653,12 +636,9 @@ class PrevizDialog(c4d.gui.GeDialog):
 
         self.LayoutChanged(TEAM_SELECT)
 
-        print 'RefreshTeamComboBox', touch.old_value, self.GetInt32(TEAM_SELECT)
         self.RefreshProjectComboBox()
 
     def RefreshProjectComboBox(self):
-        print 'PrevizDialog.RefreshProjectComboBox'
-
         with Restore(self.GetInt32, self.SetInt32, PROJECT_SELECT) as touch:
             self.FreeChildren(PROJECT_SELECT)
 
@@ -679,8 +659,6 @@ class PrevizDialog(c4d.gui.GeDialog):
         self.RefreshSceneComboBox()
 
     def RefreshSceneComboBox(self):
-        print 'PrevizDialog.RefreshSceneComboBox'
-
         with Restore(self.GetInt32, self.SetInt32, SCENE_SELECT) as touch:
             self.FreeChildren(SCENE_SELECT)
 
@@ -701,8 +679,6 @@ class PrevizDialog(c4d.gui.GeDialog):
         self.LayoutChanged(SCENE_SELECT)
 
     def OnProjectNewButtonPressed(self, msg):
-        print 'PrevizDialog.OnProjectNewButtonPressed', msg
-
         project_name = c4d.gui.InputDialog('New project name')
 
         if len(project_name) == 0:
@@ -731,8 +707,6 @@ class PrevizDialog(c4d.gui.GeDialog):
         self.SetInt32(PROJECT_SELECT, project['id'])
 
     def OnSceneNewButtonPressed(self, msg):
-        print 'PrevizDialog.OnSceneNewButtonPressed', msg
-
         # New scene
 
         scene_name = c4d.gui.InputDialog('New scene name')
@@ -761,8 +735,6 @@ class PrevizDialog(c4d.gui.GeDialog):
         self.SetInt32(SCENE_SELECT, scene['id'])
 
     def OnExportButtonPressed(self, msg):
-        print 'PrevizDialog.OnExportButtonPressed', msg
-
         filepath = c4d.storage.SaveDialog(
             type=c4d.FILESELECTTYPE_SCENES,
             title="Export scene to Previz JSON",
@@ -776,8 +748,6 @@ class PrevizDialog(c4d.gui.GeDialog):
             previz.export(BuildPrevizScene(), fp)
 
     def OnPublishButtonPressed(self, msg):
-        print 'PrevizDialog.OnPublishButtonPressed', msg
-
         # Write JSON to disk
         scene = BuildPrevizScene()
 
@@ -804,12 +774,9 @@ class PrevizDialog(c4d.gui.GeDialog):
         # Notify user of success
 
     def OnNewVersionButtonPressed(self, msg):
-        print 'PrevizDialog.OnNewVersionButtonPressed', msg
         webbrowser.open(new_plugin_version['downloadUrl'])
 
     def RefreshUI(self):
-        print 'PrevizDialog.RefreshUI'
-
         self.RefreshProjectNewButton()
         self.RefreshSceneNewButton()
         self.RefreshRefreshButton()
@@ -1088,7 +1055,6 @@ plugin_messages = {
 
 def PluginMessage(id, data):
     cb = plugin_messages.get(id)
-    print 'PluginMessage', id, data, cb
     if cb is None:
         return False
     cb(data)
@@ -1097,7 +1063,6 @@ def PluginMessage(id, data):
 if __name__ == '__main__':
     if debug:
         print 'DEBUG MODE as this file exists:', debug_canary_path
-    print 'Registering PrevizCommandData'
     c4d.plugins.RegisterCommandPlugin(id=__plugin_id__,
                                   str='Py-Previz',
                                   help='Py - Previz',
