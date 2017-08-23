@@ -6,6 +6,7 @@ import shelve
 import sys
 import tempfile
 import time
+import traceback
 import urlparse
 import webbrowser
 
@@ -73,6 +74,11 @@ MSG_PUBLISH_DONE = __plugin_id__
 
 SETTINGS_API_ROOT  = 'api_root'
 SETTINGS_API_TOKEN = 'api_token'
+
+ERROR_MESSAGE = '''Previz error
+
+The error has been logged to the script console.
+'''
 
 debug_canary_path = os.path.join(os.path.dirname(__file__), 'c4d_debug.txt')
 
@@ -219,13 +225,11 @@ def is_task_running():
     return t is not None and t.IsRunning()
 
 def terminate_current_thread():
-    print 'Terminating current thread', is_task_running()
     if not is_task_running():
         return
 
     t = get_current_thread()
     t.End(wait=True)
-    print 'Terminated current thread'
 
 
 def unpack_message(msg):
@@ -244,6 +248,7 @@ def unpack_message(msg):
 TASK_DONE          = next(ids)
 TASK_PROGRESS      = next(ids)
 TASK_PROGRESS_SPIN = next(ids)
+TASK_ERROR         = next(ids)
 
 class TestThread(c4d.threading.C4DThread):
     def __init__(self, success_timeout = None, raise_timeout = None):
@@ -253,45 +258,49 @@ class TestThread(c4d.threading.C4DThread):
         self.raise_timeout = raise_timeout
 
     def Main(self):
-        def progress(max, cur):
-            ret = cur / max
-            ret *= 100
-            ret = int(round(ret))
-            if ret < 0:
-                return 0
-            if ret > 100:
-                return 100
-            return ret
+        try:
+            def progress(max, cur):
+                ret = cur / max
+                ret *= 100
+                ret = int(round(ret))
+                if ret < 0:
+                    return 0
+                if ret > 100:
+                    return 100
+                return ret
 
-        print 'TestThread.Main: START'
+            print 'TestThread.Main: START'
 
-        t0 = time.time()
+            t0 = time.time()
 
-        while True:
-            st = random.random()*1.0
-            time.sleep(st)
+            while True:
+                st = random.random()*1.0
+                time.sleep(st)
 
-            dt = time.time() - t0
+                dt = time.time() - t0
 
-            if self.TestBreak():
-                print 'TestThread.Main: Break'
-                c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
-                return
-
-            if self.raise_timeout is not None and dt > self.raise_timeout:
-                print 'TestThread.Main: Raise'
-                raise RuntimeError('TestThread reached raise_timeout')
-
-            if self.success_timeout is not None:
-                if dt > self.success_timeout:
-                    print 'TestThread.Main: Success'
+                if self.TestBreak():
+                    print 'TestThread.Main: Break'
                     c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
                     return
 
-                p = progress(self.success_timeout, dt)
-                c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_PROGRESS, p)
-            else:
-                c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_PROGRESS_SPIN)
+                if self.raise_timeout is not None and dt > self.raise_timeout:
+                    print 'TestThread.Main: Raise'
+                    raise RuntimeError('TestThread reached raise_timeout')
+
+                if self.success_timeout is not None:
+                    if dt > self.success_timeout:
+                        print 'TestThread.Main: Success'
+                        c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
+                        return
+
+                    p = progress(self.success_timeout, dt)
+                    c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_PROGRESS, p)
+                else:
+                    c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_PROGRESS_SPIN)
+        except Exception:
+            traceback.print_exc()
+            c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_ERROR)
 
 
 class PrevizDialog(c4d.gui.GeDialog):
@@ -557,6 +566,11 @@ class PrevizDialog(c4d.gui.GeDialog):
                 unregister_current_thread()
                 self.RefreshUI()
                 return True
+
+            if type == TASK_ERROR:
+                unregister_current_thread()
+                c4d.gui.MessageDialog(ERROR_MESSAGE, type=c4d.GEMB_OK)
+                c4d.CallCommand(12305, 12305) # Show script console
 
             if type == TASK_PROGRESS:
                 print 'TASK_PROGRESS', value
