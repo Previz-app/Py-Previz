@@ -200,6 +200,17 @@ def set_current_thread(t):
     global current_thread
     current_thread = t
 
+def register_and_start_current_thread(thread, status_text):
+    c4d.StatusSetText(status_text)
+    c4d.StatusSetSpin()
+    set_current_thread(thread)
+    thread.Start()
+
+def unregister_current_thread():
+    get_current_thread().Wait(False)
+    set_current_thread(None)
+    c4d.StatusClear()
+
 def is_task_running():
     t = get_current_thread()
     return t is not None and t.IsRunning()
@@ -218,6 +229,7 @@ def unpack_message(msg):
 
     return from_PyCObject(msg[c4d.BFM_CORE_PAR1]), from_PyCObject(msg[c4d.BFM_CORE_PAR2])
 
+TASK_DONE = 101
 
 class TestThread(c4d.threading.C4DThread):
     def __init__(self, success_timeout = 999, raise_timeout = 999):
@@ -227,6 +239,16 @@ class TestThread(c4d.threading.C4DThread):
         self.raise_timeout = raise_timeout
 
     def Main(self):
+        def progress(max, cur):
+            ret = cur / max
+            ret *= 100
+            ret = int(round(ret))
+            if ret < 0:
+                return 0
+            if ret > 100:
+                return 100
+            return ret
+
         print 'TestThread.Main: START'
 
         t0 = time.time()
@@ -247,11 +269,11 @@ class TestThread(c4d.threading.C4DThread):
 
             if dt > self.success_timeout:
                 print 'TestThread.Main: Success'
-                c4d.SpecialEventAdd(MSG_PUBLISH_DONE, 13, 17)
-                #c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
+                c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
                 return
 
-            # send progress
+            p = progress(self.success_timeout, dt)
+            c4d.SpecialEventAdd(MSG_PUBLISH_DONE, p)
 
 
 class PrevizDialog(c4d.gui.GeDialog):
@@ -279,21 +301,24 @@ class PrevizDialog(c4d.gui.GeDialog):
 
     def OnDebugButtonSuccessPressed(self, msg):
         print 'PrevizDialog.OnDebugButtonSuccessPressed'
-        t = TestThread(success_timeout=1.0)
-        set_current_thread(t)
-        t.Start()
+        register_and_start_current_thread(
+            TestThread(success_timeout=5.0),
+            'Test success'
+        )
 
     def OnDebugButtonCancelPressed(self, msg):
         print 'PrevizDialog.OnDebugButtonCancelPressed'
-        t = TestThread()
-        set_current_thread(t)
-        t.Start()
+        register_and_start_current_thread(
+            TestThread(),
+            'Test cancel'
+        )
 
     def OnDebugButtonRaisePressed(self, msg):
         print 'PrevizDialog.OnDebugButtonRaisePressed'
-        t = TestThread(raise_timeout=1.0)
-        set_current_thread(t)
-        t.Start()
+        register_and_start_current_thread(
+            TestThread(raise_timeout=1.0),
+            'Test raise'
+        )
 
     @property
     def previz_project(self):
@@ -499,11 +524,15 @@ class PrevizDialog(c4d.gui.GeDialog):
 
     def CoreMessage(self, id, msg):
         if id == MSG_PUBLISH_DONE:
-            print 'PrevizDialog.CoreMessage', id, id == __plugin_id__, unpack_message(msg)
-            get_current_thread().Wait(False)
-            set_current_thread(None)
-            self.RefreshUI()
-            return True
+            v1, v2 = unpack_message(msg)
+
+            if v1 == TASK_DONE:
+                unregister_current_thread()
+                self.RefreshUI()
+                return True
+
+            progress = v1
+            c4d.StatusSetBar(progress)
 
         return c4d.gui.GeDialog.CoreMessage(self, id, msg)
 
