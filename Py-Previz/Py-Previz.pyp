@@ -1,5 +1,6 @@
 import contextlib
 import ctypes
+import logging
 import os
 import os.path
 import shelve
@@ -83,6 +84,7 @@ The error has been logged to the script console.
 debug_canary_path = os.path.join(os.path.dirname(__file__), 'c4d_debug.txt')
 
 debug = os.path.exists(debug_canary_path)
+
 teams = {}
 new_plugin_version = None
 
@@ -228,8 +230,10 @@ def terminate_current_thread():
     if not is_task_running():
         return
 
+    log.debug('Waiting for current thread to finish')
     t = get_current_thread()
     t.End(wait=True)
+    log.debug('Current thread finished')
 
 
 def unpack_message(msg):
@@ -269,7 +273,7 @@ class TestThread(c4d.threading.C4DThread):
                     return 100
                 return ret
 
-            print 'TestThread.Main: START'
+            log.info('TestThread.Main: START')
 
             t0 = time.time()
 
@@ -280,17 +284,17 @@ class TestThread(c4d.threading.C4DThread):
                 dt = time.time() - t0
 
                 if self.TestBreak():
-                    print 'TestThread.Main: Break'
+                    log.info('TestThread.Main: Break')
                     c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
                     return
 
                 if self.raise_timeout is not None and dt > self.raise_timeout:
-                    print 'TestThread.Main: Raise'
+                    log.info('TestThread.Main: Raise')
                     raise RuntimeError('TestThread reached raise_timeout')
 
                 if self.success_timeout is not None:
                     if dt > self.success_timeout:
-                        print 'TestThread.Main: Success'
+                        log.info('TestThread.Main: Success')
                         c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
                         return
 
@@ -299,7 +303,7 @@ class TestThread(c4d.threading.C4DThread):
                 else:
                     c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_PROGRESS_SPIN)
         except Exception:
-            traceback.print_exc()
+            log.error(traceback.format_exc())
             c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_ERROR)
 
 
@@ -567,11 +571,11 @@ class PrevizDialog(c4d.gui.GeDialog):
                 c4d.CallCommand(12305, 12305) # Show script console
 
             if type == TASK_PROGRESS:
-                print 'TASK_PROGRESS', value
+                log.debug('TASK_PROGRESS: %s' % value)
                 c4d.StatusSetBar(value)
 
             if type == TASK_PROGRESS_SPIN:
-                print 'TASK_PROGRESS_SPIN'
+                log.debug('TASK_PROGRESS_SPIN')
                 c4d.StatusSetSpin()
 
         return c4d.gui.GeDialog.CoreMessage(self, id, msg)
@@ -997,7 +1001,7 @@ def build_objects(doc):
         yield parse_mesh(o)
 
 def BuildPrevizScene():
-    print '---- START', 'BuildPrevizScene'
+    log.info('BuildPrevizScene')
 
     doc = c4d.documents.GetActiveDocument()
     doc = doc.Polygonize()
@@ -1006,8 +1010,6 @@ def BuildPrevizScene():
                         os.path.basename(doc.GetDocumentPath()),
                         None,
                         build_objects(doc))
-
-    print '---- END', 'BuildPrevizScene'
 
 
 class PublisherThread(c4d.threading.C4DThread):
@@ -1025,19 +1027,53 @@ class PublisherThread(c4d.threading.C4DThread):
         scene = p.scene(self.scene_uuid, include=[])
         json_url = scene['jsonUrl']
         with open(self.path, 'rb') as fp:
-            print 'START upload'
+            log.info('Start upload: %s' % json_url)
             p.update_scene(json_url, fp)
-            print 'STOP upload'
+            log.info('End upload: %s' % json_url)
         c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
 
 
 publisher_thread = None
 
 
+
+log = None
+handlers = []
+
+def register_logger():
+    global log
+    global handlers
+
+    lvl = logging.DEBUG if debug else logging.INFO
+    log = logging.getLogger(__plugin_title__)
+    log.setLevel(lvl)
+
+    formatter = logging.Formatter('%(name)s:%(levelname)s %(message)s')
+
+    sh = logging.StreamHandler()
+    sh.setLevel(lvl)
+    sh.setFormatter(formatter)
+
+    log.addHandler(sh)
+    handlers.append(sh)
+
+
+def unregister_logger():
+    global log
+    global handlers
+
+    if log is None:
+        return
+
+    for handler in handlers:
+        log.removeHandler(handler)
+
+
 def make_terminate_thread_callback(text):
     def func(msg):
-        print text
+        log.debug(text)
         terminate_current_thread()
+        unregister_logger()
     return func
 
 
@@ -1054,8 +1090,10 @@ def PluginMessage(id, data):
 
 
 if __name__ == '__main__':
+    register_logger()
     if debug:
-        print 'DEBUG MODE as this file exists:', debug_canary_path
+        log.debug('Activated debug mode has this file exists:')
+        log.debug(debug_canary_path)
     c4d.plugins.RegisterCommandPlugin(id=__plugin_id__,
                                   str='Py-Previz',
                                   help='Py - Previz',
