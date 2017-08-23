@@ -189,7 +189,21 @@ def extract_all(teams_data):
 import random
 import time
 
+
 current_thread = None
+
+def get_current_thread():
+    global current_thread
+    return current_thread
+
+def set_current_thread(t):
+    global current_thread
+    current_thread = t
+
+def is_task_running():
+    t = get_current_thread()
+    return t is not None and t.IsRunning()
+
 
 def unpack_message(msg):
     # charlesfleche 2017-08-23
@@ -214,30 +228,30 @@ class TestThread(c4d.threading.C4DThread):
 
     def Main(self):
         print 'TestThread.Main: START'
-        return
-        #import time
-        #t0 = time.time()
-        #st = self.success_timeout / 100.0
 
-        #while True:
-            #time.sleep(st)
+        t0 = time.time()
 
-            #dt = time.time() - t0
+        while True:
+            st = random.random()*.25
+            time.sleep(st)
 
-            #if self.TestBreak():
-                #print 'TestThread.Main: Break'
-                #return
+            dt = time.time() - t0
 
-            #if dt > self.raise_timeout:
-                #print 'TestThread.Main: Raise'
-                #raise RuntimeError('TestThread reached raise_timeout')
+            if self.TestBreak():
+                print 'TestThread.Main: Break'
+                return
 
-            #if dt > self.success_timeout:
-                #print 'TestThread.Main: Success'
+            if dt > self.raise_timeout:
+                print 'TestThread.Main: Raise'
+                raise RuntimeError('TestThread reached raise_timeout')
+
+            if dt > self.success_timeout:
+                print 'TestThread.Main: Success'
+                c4d.SpecialEventAdd(MSG_PUBLISH_DONE, 13, 17)
                 #c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
-                #return
+                return
 
-            ## send progress
+            # send progress
 
 
 class PrevizDialog(c4d.gui.GeDialog):
@@ -265,21 +279,21 @@ class PrevizDialog(c4d.gui.GeDialog):
 
     def OnDebugButtonSuccessPressed(self, msg):
         print 'PrevizDialog.OnDebugButtonSuccessPressed'
-        global current_thread
-        current_thread = TestThread(success_timeout=1.0)
-        current_thread.Start()
+        t = TestThread(success_timeout=1.0)
+        set_current_thread(t)
+        t.Start()
 
     def OnDebugButtonCancelPressed(self, msg):
         print 'PrevizDialog.OnDebugButtonCancelPressed'
-        global current_thread
-        current_thread = TestThread()
-        current_thread.Start()
+        t = TestThread()
+        set_current_thread(t)
+        t.Start()
 
     def OnDebugButtonRaisePressed(self, msg):
         print 'PrevizDialog.OnDebugButtonRaisePressed'
-        global current_thread
-        current_thread = TestThread(raise_timeout=1.0)
-        current_thread.Start()
+        t = TestThread(raise_timeout=1.0)
+        set_current_thread(t)
+        t.Start()
 
     @property
     def previz_project(self):
@@ -486,6 +500,8 @@ class PrevizDialog(c4d.gui.GeDialog):
     def CoreMessage(self, id, msg):
         if id == MSG_PUBLISH_DONE:
             print 'PrevizDialog.CoreMessage', id, id == __plugin_id__, unpack_message(msg)
+            get_current_thread().Wait(False)
+            set_current_thread(None)
             self.RefreshUI()
             return True
 
@@ -732,7 +748,7 @@ class PrevizDialog(c4d.gui.GeDialog):
         project_name = self.GetString(PROJECT_NEW_EDIT)
         project_name_is_valid = len(project_name) > 0
 
-        self.Enable(PROJECT_NEW_BUTTON, team_id_is_valid)
+        self.Enable(PROJECT_NEW_BUTTON, not is_task_running() and team_id_is_valid)
 
     def RefreshSceneNewButton(self):
         project_id = self.GetInt32(PROJECT_SELECT)
@@ -741,12 +757,12 @@ class PrevizDialog(c4d.gui.GeDialog):
         scene_name = self.GetString(SCENE_NEW_EDIT)
         scene_name_is_valid = len(scene_name) > 0
 
-        self.Enable(SCENE_NEW_BUTTON, project_id_is_valid)
+        self.Enable(SCENE_NEW_BUTTON, not is_task_running() and project_id_is_valid)
 
     def RefreshRefreshButton(self):
         api_token = self.GetString(API_TOKEN_EDIT)
         is_api_token_valid = len(api_token) > 0
-        self.Enable(REFRESH_BUTTON, is_api_token_valid)
+        self.Enable(REFRESH_BUTTON, not is_task_running() and is_api_token_valid)
 
     def RefreshPublishButton(self):
         # Token
@@ -774,7 +790,8 @@ class PrevizDialog(c4d.gui.GeDialog):
                     and is_team_id_valid \
                     and is_project_id_valid \
                     and is_scene_id_valid \
-                    and not is_publisher_thread_running)
+                    and not is_publisher_thread_running \
+                    and not is_task_running())
 
     def RefreshNewVersionButton(self):
         global new_plugin_version
