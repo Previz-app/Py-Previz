@@ -240,6 +240,16 @@ class PrevizDialog(gui.GeDialog):
         self.SetTitle(__plugin_title__)
 
         self.GroupBegin(id=next(ids),
+                        flags=c4d.BFH_SCALEFIT | c4d.BFV_SCALEFIT,
+                        cols=1,
+                        rows=1,
+                        title='Wrapper',
+                        groupflags=c4d.BORDER_NONE)
+
+        self.GroupSpace(6, 6)
+        self.GroupBorderSpace(6, 6, 6, 6)
+
+        self.GroupBegin(id=next(ids),
                         flags=c4d.BFH_SCALEFIT,
                         cols=3,
                         title='Previz',
@@ -290,6 +300,8 @@ class PrevizDialog(gui.GeDialog):
                        name='Publish to Previz')
 
         self.GroupEnd()
+
+        self.GroupEnd() # Wrapper
 
         return True
 
