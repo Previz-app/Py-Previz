@@ -66,11 +66,6 @@ EXPORT_BUTTON  = next(ids)
 PUBLISH_BUTTON = next(ids)
 NEW_VERSION_BUTTON = next(ids)
 
-DEBUG_BUTTON_SUCCESS = next(ids)
-DEBUG_BUTTON_CANCEL  = next(ids)
-DEBUG_BUTTON_CANCEL_CURRENT = next(ids)
-DEBUG_BUTTON_RAISE   = next(ids)
-
 MSG_PUBLISH_DONE = __plugin_id__
 
 SETTINGS_API_ROOT  = 'api_root'
@@ -293,55 +288,6 @@ class AsyncTask(c4d.threading.C4DThread):
         # pass
 
 
-class TestThread(AsyncTask):
-    def __init__(self, success_timeout = None, raise_timeout = None):
-        AsyncTask.__init__(self)
-
-        self.success_timeout = success_timeout
-        self.raise_timeout = raise_timeout
-
-    def doit(self):
-        def progress(max, cur):
-            ret = cur / max
-            ret *= 100
-            ret = int(round(ret))
-            if ret < 0:
-                return 0
-            if ret > 100:
-                return 100
-            return ret
-
-        log.info('TestThread.Main: START')
-
-        t0 = time.time()
-
-        while True:
-            st = random.random()*1.0
-            time.sleep(st)
-
-            dt = time.time() - t0
-
-            if self.TestBreak():
-                log.info('TestThread.Main: Break')
-                self.done()
-                return
-
-            if self.raise_timeout is not None and dt > self.raise_timeout:
-                log.info('TestThread.Main: Raise')
-                raise RuntimeError('TestThread reached raise_timeout')
-
-            if self.success_timeout is not None:
-                if dt > self.success_timeout:
-                    log.info('TestThread.Main: Success')
-                    self.done()
-                    return
-
-                p = progress(self.success_timeout, dt)
-                self.progress(p)
-            else:
-                self.progress()
-
-
 class GetAllTask(AsyncTask):
     SCENES_TREE = 'scenes_tree'
     NEW_PLUGIN_VERSION = 'plugin_version'
@@ -482,34 +428,8 @@ class PrevizDialog(c4d.gui.GeDialog):
             REFRESH_BUTTON:     self.OnRefreshButtonPressed,
             EXPORT_BUTTON:      self.OnExportButtonPressed,
             PUBLISH_BUTTON:     self.OnPublishButtonPressed,
-            NEW_VERSION_BUTTON: self.OnNewVersionButtonPressed,
-
-            DEBUG_BUTTON_SUCCESS: self.OnDebugButtonSuccessPressed,
-            DEBUG_BUTTON_CANCEL:  self.OnDebugButtonCancelPressed,
-            DEBUG_BUTTON_CANCEL_CURRENT: self.OnDebugButtonCancelCurrentPressed,
-            DEBUG_BUTTON_RAISE:   self.OnDebugButtonRaisePressed
+            NEW_VERSION_BUTTON: self.OnNewVersionButtonPressed
         }
-
-    def OnDebugButtonSuccessPressed(self, msg):
-        register_and_start_current_thread(
-            TestThread(success_timeout=5.0),
-            'Test success'
-        )
-
-    def OnDebugButtonCancelPressed(self, msg):
-        register_and_start_current_thread(
-            TestThread(),
-            'Test cancel'
-        )
-
-    def OnDebugButtonCancelCurrentPressed(self, msg):
-        terminate_current_thread()
-
-    def OnDebugButtonRaisePressed(self, msg):
-        register_and_start_current_thread(
-            TestThread(raise_timeout=1.0),
-            'Test raise'
-        )
 
     @property
     def previz_project(self):
@@ -627,37 +547,9 @@ class PrevizDialog(c4d.gui.GeDialog):
 
         self.GroupEnd()
 
-        self.CreateDebugLine()
-
         self.GroupEnd() # Wrapper
 
         return True
-
-    def CreateDebugLine(self):
-        self.GroupBegin(id=next(ids),
-                        flags=c4d.BFH_SCALEFIT,
-                        cols=4,
-                        rows=1,
-                        title='Previz',
-                        groupflags=c4d.BORDER_NONE)
-
-        self.AddButton(id=DEBUG_BUTTON_SUCCESS,
-                       flags=c4d.BFH_SCALEFIT,
-                       name='Debug success')
-
-        self.AddButton(id=DEBUG_BUTTON_CANCEL,
-                       flags=c4d.BFH_SCALEFIT,
-                       name='Debug cancel')
-
-        self.AddButton(id=DEBUG_BUTTON_CANCEL_CURRENT,
-                       flags=c4d.BFH_SCALEFIT,
-                       name='Cancel')
-
-        self.AddButton(id=DEBUG_BUTTON_RAISE,
-                       flags=c4d.BFH_SCALEFIT,
-                       name='Debug raise')
-
-        self.GroupEnd()
 
     def CreateAPIRootLine(self):
         self.GroupBegin(id=next(ids),
