@@ -387,6 +387,36 @@ class NewProjectTask(AsyncTask):
         self.done()
 
 
+class NewSceneTask(AsyncTask):
+    NEW_SCENE = 'new_scene'
+
+    def __init__(self, api_root, api_token, project_uuid, name):
+        AsyncTask.__init__(self)
+
+        self.api_root = api_root
+        self.api_token = api_token
+        self.project_uuid = project_uuid
+        self.name = name
+
+    def doit(self):
+        p = previz.PrevizProject(self.api_root, self.api_token, self.project_uuid)
+
+        new_scene = p.new_scene(self.name)
+
+        scenes_tree = extract_all(p.get_all())
+        self.send_msg(
+            GetAllTask.SCENES_TREE,
+            scenes_tree=scenes_tree
+        )
+
+        self.send_msg(
+            NewSceneTask.NEW_SCENE,
+            new_scene=new_scene
+        )
+
+        self.done()
+
+
 class PrevizDialog(c4d.gui.GeDialog):
     def __init__(self):
         self.settings = Settings(__plugin_title__)
@@ -697,10 +727,10 @@ class PrevizDialog(c4d.gui.GeDialog):
             self.RefreshNewVersionButton()
 
         if type == NewProjectTask.NEW_PROJECT:
+            project = msg['new_project']
+
             # Clear project name
             # For some reason SetString doesn't send an event
-
-            project = msg['new_project']
 
             self.SetString(PROJECT_NEW_EDIT, '')
             self.RefreshProjectNewButton()
@@ -711,6 +741,22 @@ class PrevizDialog(c4d.gui.GeDialog):
 
             project = find_by_key(self.current_projects, 'uuid', project['id'])
             self.SetInt32(PROJECT_SELECT, project['id']) # Do setters as well
+
+        if type == NewSceneTask.NEW_SCENE:
+            scene = msg['new_scene']
+
+            # Clear scene name
+            # For some reason SetString doesn't send an event
+
+            self.SetString(SCENE_NEW_EDIT, '')
+            self.RefreshSceneNewButton()
+
+            # Select new scene
+
+            self.RefreshSceneComboBox()
+
+            scene = find_by_key(self.current_scenes, 'uuid', scene['id'])
+            self.SetInt32(SCENE_SELECT, scene['id']) # XXX implement selected_scene setter
 
     def Command(self, id, msg):
         # Refresh the UI so the user has immediate feedback
@@ -835,21 +881,15 @@ class PrevizDialog(c4d.gui.GeDialog):
         if len(scene_name) == 0:
             return
 
-        scene = self.previz_project.new_scene(scene_name)
-        self.refresh_all()
-
-        # Clear scene name
-        # For some reason SetString doesn't send an event
-
-        self.SetString(SCENE_NEW_EDIT, '')
-        self.RefreshSceneNewButton()
-
-        # Select new scene
-
-        self.RefreshSceneComboBox()
-
-        scene = find_by_key(self.current_scenes, 'uuid', scene['id'])
-        self.SetInt32(SCENE_SELECT, scene['id']) # XXX implement selected_scene setter
+        register_and_start_current_thread(
+            NewSceneTask(
+                self.api_root,
+                self.api_token,
+                self.selected_project['uuid'],
+                scene_name
+            ),
+            'Creating Previz scene %s' % scene_name
+        )
 
     def OnExportButtonPressed(self, msg):
         filepath = c4d.storage.SaveDialog(
