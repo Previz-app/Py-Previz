@@ -437,10 +437,7 @@ class PrevizDialog(c4d.gui.GeDialog):
         api_root = self.settings[SETTINGS_API_ROOT]
         api_token = self.settings[SETTINGS_API_TOKEN]
 
-        global teams
-        team = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
-        projects = team['projects'] if team is not None else []
-        project = find_by_key(projects, 'id', self.GetInt32(PROJECT_SELECT))
+        project = self.selected_project
         project_uuid = project['uuid'] if project is not None else None
 
         return previz.PrevizProject(api_root, api_token, project_uuid)
@@ -452,6 +449,29 @@ class PrevizDialog(c4d.gui.GeDialog):
     @property
     def api_token(self):
         return self.settings[SETTINGS_API_TOKEN]
+
+    @property
+    def selected_team(self):
+        global teams
+        return find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
+
+    @property
+    def current_projects(self):
+        team = self.selected_team
+        return [] if team is None else team['projects']
+
+    @property
+    def selected_project(self):
+        return find_by_key(self.current_projects, 'id', self.GetInt32(PROJECT_SELECT))
+
+    @property
+    def current_scenes(self):
+        project = self.selected_project
+        return [] if project is None else project['scenes']
+
+    @property
+    def selected_scene(self):
+        find_by_key(self.current_scenes, 'id', self.GetInt32(SCENE_SELECT))
 
     def InitValues(self):
         self.SetString(API_ROOT_EDIT, self.settings[SETTINGS_API_ROOT])
@@ -689,11 +709,8 @@ class PrevizDialog(c4d.gui.GeDialog):
 
             self.RefreshProjectComboBox()
 
-            project_uuid = project['id']
-            team = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
-            projects = team['projects']
-            project = find_by_key(projects, 'uuid', project_uuid)
-            self.SetInt32(PROJECT_SELECT, project['id'])
+            project = find_by_key(self.current_projects, 'uuid', project['id'])
+            self.SetInt32(PROJECT_SELECT, project['id']) # Do setters as well
 
     def Command(self, id, msg):
         # Refresh the UI so the user has immediate feedback
@@ -768,17 +785,13 @@ class PrevizDialog(c4d.gui.GeDialog):
         with Restore(self.GetInt32, self.SetInt32, PROJECT_SELECT) as touch:
             self.FreeChildren(PROJECT_SELECT)
 
-            global teams
-            team     = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
-            projects = [] if team is None else team['projects']
-
-            for project in projects:
+            for project in self.current_projects:
                 id   = project['id']
                 title = project['title']
                 self.AddChild(PROJECT_SELECT, id, title)
                 touch(id)
 
-        self.set_default_id_if_needed(PROJECT_SELECT, sorted(projects, key=key))
+        self.set_default_id_if_needed(PROJECT_SELECT, sorted(self.current_projects, key=key))
 
         self.LayoutChanged(PROJECT_SELECT)
 
@@ -788,19 +801,13 @@ class PrevizDialog(c4d.gui.GeDialog):
         with Restore(self.GetInt32, self.SetInt32, SCENE_SELECT) as touch:
             self.FreeChildren(SCENE_SELECT)
 
-            global teams
-            team     = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
-            projects = [] if team is None else team['projects']
-            project  = find_by_key(projects, 'id', self.GetInt32(PROJECT_SELECT))
-            scenes   = [] if project is None else project['scenes']
-
-            for scene in scenes:
+            for scene in self.current_scenes:
                 id = scene['id']
                 name = scene['title']
                 self.AddChild(SCENE_SELECT, id, name)
                 touch(id)
 
-        self.set_default_id_if_needed(SCENE_SELECT, sorted(scenes, key=key))
+        self.set_default_id_if_needed(SCENE_SELECT, sorted(self.current_scenes, key=key))
 
         self.LayoutChanged(SCENE_SELECT)
 
@@ -810,14 +817,11 @@ class PrevizDialog(c4d.gui.GeDialog):
         if len(project_name) == 0:
             return
 
-        # New project
-        global teams
-        team_uuid = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))['uuid']
         register_and_start_current_thread(
             NewProjectTask(
                 self.api_root,
                 self.api_token,
-                team_uuid,
+                self.selected_team['uuid'],
                 project_name
             ),
             'Creating Previz project %s' % project_name
@@ -844,12 +848,8 @@ class PrevizDialog(c4d.gui.GeDialog):
 
         self.RefreshSceneComboBox()
 
-        scene_uuid = scene['id']
-        global teams
-        team = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
-        project = find_by_key(team['projects'], 'id', self.GetInt32(PROJECT_SELECT))
-        scene = find_by_key(project['scenes'], 'uuid', scene_uuid)
-        self.SetInt32(SCENE_SELECT, scene['id'])
+        scene = find_by_key(self.current_scenes, 'uuid', scene['id'])
+        self.SetInt32(SCENE_SELECT, scene['id']) # XXX implement selected_scene setter
 
     def OnExportButtonPressed(self, msg):
         filepath = c4d.storage.SaveDialog(
