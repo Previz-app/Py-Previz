@@ -357,6 +357,36 @@ class GetAllTask(AsyncTask):
         self.done()
 
 
+class NewProjectTask(AsyncTask):
+    NEW_PROJECT = 'new_project'
+
+    def __init__(self, api_root, api_token, team_id, name):
+        AsyncTask.__init__(self)
+
+        self.api_root = api_root
+        self.api_token = api_token
+        self.team_id = team_id
+        self.name = name
+
+    def doit(self):
+        p = previz.PrevizProject(self.api_root, self.api_token)
+
+        new_project = p.new_project(self.name, self.team_id)
+
+        scenes_tree = extract_all(p.get_all())
+        self.send_msg(
+            GetAllTask.SCENES_TREE,
+            scenes_tree=scenes_tree
+        )
+
+        self.send_msg(
+            NewProjectTask.NEW_PROJECT,
+            new_project=new_project
+        )
+
+        self.done()
+
+
 class PrevizDialog(c4d.gui.GeDialog):
     def __init__(self):
         self.settings = Settings(__plugin_title__)
@@ -646,6 +676,25 @@ class PrevizDialog(c4d.gui.GeDialog):
             new_plugin_version = msg['new_plugin_version']
             self.RefreshNewVersionButton()
 
+        if type == NewProjectTask.NEW_PROJECT:
+            # Clear project name
+            # For some reason SetString doesn't send an event
+
+            project = msg['new_project']
+
+            self.SetString(PROJECT_NEW_EDIT, '')
+            self.RefreshProjectNewButton()
+
+            # Select new project
+
+            self.RefreshProjectComboBox()
+
+            project_uuid = project['id']
+            team = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
+            projects = team['projects']
+            project = find_by_key(projects, 'uuid', project_uuid)
+            self.SetInt32(PROJECT_SELECT, project['id'])
+
     def Command(self, id, msg):
         # Refresh the UI so the user has immediate feedback
         self.RefreshUI()
@@ -685,6 +734,9 @@ class PrevizDialog(c4d.gui.GeDialog):
         pass
 
     def OnRefreshButtonPressed(self, msg):
+        self.refresh_all()
+
+    def refresh_all(self):
         register_and_start_current_thread(
             GetAllTask(self.api_root, self.api_token),
             'Refresh Previz'
@@ -761,24 +813,15 @@ class PrevizDialog(c4d.gui.GeDialog):
         # New project
         global teams
         team_uuid = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))['uuid']
-        project = self.previz_project.new_project(project_name, team_uuid)
-        self.refresh_all()
-
-        # Clear project name
-        # For some reason SetString doesn't send an event
-
-        self.SetString(PROJECT_NEW_EDIT, '')
-        self.RefreshProjectNewButton()
-
-        # Select new project
-
-        self.RefreshProjectComboBox()
-
-        project_uuid = project['id']
-        team = find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
-        projects = team['projects']
-        project = find_by_key(projects, 'uuid', project_uuid)
-        self.SetInt32(PROJECT_SELECT, project['id'])
+        register_and_start_current_thread(
+            NewProjectTask(
+                self.api_root,
+                self.api_token,
+                team_uuid,
+                project_name
+            ),
+            'Creating Previz project %s' % project_name
+        )
 
     def OnSceneNewButtonPressed(self, msg):
         # New scene
