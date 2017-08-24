@@ -241,12 +241,10 @@ TASK_PROGRESS      = next(ids)
 TASK_PROGRESS_SPIN = next(ids)
 TASK_ERROR         = next(ids)
 
-class TestThread(c4d.threading.C4DThread):
-    def __init__(self, success_timeout = None, raise_timeout = None):
-        #c4d.threading.C4DThread.__init__(self)
 
-        self.success_timeout = success_timeout
-        self.raise_timeout = raise_timeout
+class AsyncTask(c4d.threading.C4DThread):
+    def __init__(self):
+        c4d.threading.C4DThread.__init__(self)
 
     def done(self):
         self.send_msg(TASK_DONE)
@@ -271,48 +269,59 @@ class TestThread(c4d.threading.C4DThread):
 
     def Main(self):
         try:
-            def progress(max, cur):
-                ret = cur / max
-                ret *= 100
-                ret = int(round(ret))
-                if ret < 0:
-                    return 0
-                if ret > 100:
-                    return 100
-                return ret
-
-            log.info('TestThread.Main: START')
-
-            t0 = time.time()
-
-            while True:
-                st = random.random()*1.0
-                time.sleep(st)
-
-                dt = time.time() - t0
-
-                if self.TestBreak():
-                    log.info('TestThread.Main: Break')
-                    self.done()
-                    return
-
-                if self.raise_timeout is not None and dt > self.raise_timeout:
-                    log.info('TestThread.Main: Raise')
-                    raise RuntimeError('TestThread reached raise_timeout')
-
-                if self.success_timeout is not None:
-                    if dt > self.success_timeout:
-                        log.info('TestThread.Main: Success')
-                        self.done()
-                        return
-
-                    p = progress(self.success_timeout, dt)
-                    self.progress(p)
-                else:
-                    self.progress()
+            self.doit()
         except Exception:
             log.error(traceback.format_exc())
             self.error()
+
+
+class TestThread(AsyncTask):
+    def __init__(self, success_timeout = None, raise_timeout = None):
+        AsyncTask.__init__(self)
+
+        self.success_timeout = success_timeout
+        self.raise_timeout = raise_timeout
+
+    def doit(self):
+        def progress(max, cur):
+            ret = cur / max
+            ret *= 100
+            ret = int(round(ret))
+            if ret < 0:
+                return 0
+            if ret > 100:
+                return 100
+            return ret
+
+        log.info('TestThread.Main: START')
+
+        t0 = time.time()
+
+        while True:
+            st = random.random()*1.0
+            time.sleep(st)
+
+            dt = time.time() - t0
+
+            if self.TestBreak():
+                log.info('TestThread.Main: Break')
+                self.done()
+                return
+
+            if self.raise_timeout is not None and dt > self.raise_timeout:
+                log.info('TestThread.Main: Raise')
+                raise RuntimeError('TestThread reached raise_timeout')
+
+            if self.success_timeout is not None:
+                if dt > self.success_timeout:
+                    log.info('TestThread.Main: Success')
+                    self.done()
+                    return
+
+                p = progress(self.success_timeout, dt)
+                self.progress(p)
+            else:
+                self.progress()
 
 
 class PrevizDialog(c4d.gui.GeDialog):
