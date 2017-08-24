@@ -236,27 +236,27 @@ def terminate_current_thread():
     t.End(wait=True)
     log.debug('Current thread finished')
 
-TASK_DONE          = next(ids)
-TASK_PROGRESS      = next(ids)
-TASK_PROGRESS_SPIN = next(ids)
-TASK_ERROR         = next(ids)
-
 
 class AsyncTask(c4d.threading.C4DThread):
+    TASK_DONE          = 'task_done'
+    TASK_PROGRESS      = 'task_progress'
+    TASK_PROGRESS_SPIN = 'task_progress_spin'
+    TASK_ERROR         = 'task_error'
+
     def __init__(self):
         c4d.threading.C4DThread.__init__(self)
 
     def done(self):
-        self.send_msg(TASK_DONE)
+        self.send_msg(AsyncTask.TASK_DONE)
 
     def progress(self, value = None):
         if value is None:
-            self.send_msg(TASK_PROGRESS_SPIN)
+            self.send_msg(AsyncTask.TASK_PROGRESS_SPIN)
         else:
-            self.send_msg(TASK_PROGRESS, progress=value)
+            self.send_msg(AsyncTask.TASK_PROGRESS, progress=value)
 
     def error(self):
-        self.send_msg(TASK_ERROR, exc_info=sys.exc_info())
+        self.send_msg(AsyncTask.TASK_ERROR, exc_info=sys.exc_info())
 
     def send_msg(self, type, **kwargs):
         msg = {
@@ -273,6 +273,11 @@ class AsyncTask(c4d.threading.C4DThread):
         except Exception:
             log.error(traceback.format_exc())
             self.error()
+
+    # Must be defined by children classes
+    # Must call self.done()
+    #def doit(self):
+        # pass
 
 
 class TestThread(AsyncTask):
@@ -322,6 +327,34 @@ class TestThread(AsyncTask):
                 self.progress(p)
             else:
                 self.progress()
+
+
+class GetAllTask(AsyncTask):
+    SCENES_TREE = 'scenes_tree'
+    NEW_PLUGIN_VERSION = 'plugin_version'
+
+    def __init__(self, api_root, api_token):
+        AsyncTask.__init__(self)
+
+        self.api_root = api_root
+        self.api_token = api_token
+
+    def doit(self):
+        p = previz.PrevizProject(self.api_root, self.api_token)
+
+        scenes_tree = extract_all(p.get_all())
+        self.send_msg(
+            GetAllTask.SCENES_TREE,
+            scenes_tree=scenes_tree
+        )
+
+        new_plugin_version = p.updated_plugin('cinema4d', __version__)
+        self.send_msg(
+            GetAllTask.NEW_PLUGIN_VERSION,
+            new_plugin_version=new_plugin_version
+        )
+
+        self.done()
 
 
 class PrevizDialog(c4d.gui.GeDialog):
@@ -382,17 +415,13 @@ class PrevizDialog(c4d.gui.GeDialog):
 
         return previz.PrevizProject(api_root, api_token, project_uuid)
 
-    def get_all(self):
-        return extract_all(self.previz_project.get_all())
+    @property
+    def api_root(self):
+        return self.settings[SETTINGS_API_ROOT]
 
-    def refresh_all(self):
-        global teams
-        teams = self.get_all()
-        self.RefreshTeamComboBox()
-
-        global new_plugin_version
-        new_plugin_version = self.previz_project.updated_plugin('cinema4d', __version__)
-        self.RefreshNewVersionButton()
+    @property
+    def api_token(self):
+        return self.settings[SETTINGS_API_TOKEN]
 
     def InitValues(self):
         self.SetString(API_ROOT_EDIT, self.settings[SETTINGS_API_ROOT])
@@ -589,23 +618,33 @@ class PrevizDialog(c4d.gui.GeDialog):
     def CustomThreadMessage(self, msg):
         type = msg['type']
 
-        if type == TASK_DONE:
+        if type == AsyncTask.TASK_DONE:
             unregister_current_thread()
             self.RefreshUI()
 
-        if type == TASK_ERROR:
+        if type == AsyncTask.TASK_ERROR:
             unregister_current_thread()
             c4d.gui.MessageDialog(ERROR_MESSAGE, type=c4d.GEMB_OK)
             c4d.CallCommand(12305, 12305) # Show script console
 
-        if type == TASK_PROGRESS:
+        if type == AsyncTask.TASK_PROGRESS:
             value = msg['progress']
             log.debug('TASK_PROGRESS: %s' % value)
             c4d.StatusSetBar(value)
 
-        if type == TASK_PROGRESS_SPIN:
+        if type == AsyncTask.TASK_PROGRESS_SPIN:
             log.debug('TASK_PROGRESS_SPIN')
             c4d.StatusSetSpin()
+
+        if type == GetAllTask.SCENES_TREE:
+            global teams
+            teams = msg['scenes_tree']
+            self.RefreshTeamComboBox()
+
+        if type == GetAllTask.NEW_PLUGIN_VERSION:
+            global new_plugin_version
+            new_plugin_version = msg['new_plugin_version']
+            self.RefreshNewVersionButton()
 
     def Command(self, id, msg):
         # Refresh the UI so the user has immediate feedback
@@ -646,7 +685,10 @@ class PrevizDialog(c4d.gui.GeDialog):
         pass
 
     def OnRefreshButtonPressed(self, msg):
-        self.refresh_all()
+        register_and_start_current_thread(
+            GetAllTask(self.api_root, self.api_token),
+            'Refresh Previz'
+        )
 
     def set_default_id_if_needed(self, id, iterable):
         if self.GetInt32(id) == -1 and len(iterable) > 0:
