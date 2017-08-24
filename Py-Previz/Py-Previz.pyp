@@ -66,7 +66,7 @@ EXPORT_BUTTON  = next(ids)
 PUBLISH_BUTTON = next(ids)
 NEW_VERSION_BUTTON = next(ids)
 
-MSG_PUBLISH_DONE = __plugin_id__
+MSG_PREVIZ_THREAD = __plugin_id__
 
 SETTINGS_API_ROOT  = 'api_root'
 SETTINGS_API_TOKEN = 'api_token'
@@ -270,7 +270,7 @@ class AsyncTask(c4d.threading.C4DThread):
         }
         msg.update(kwargs)
         current_thread_queue_to_main.put(msg)
-        c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
+        c4d.SpecialEventAdd(MSG_PREVIZ_THREAD)
 
     def Main(self):
         try:
@@ -626,7 +626,7 @@ class PrevizDialog(c4d.gui.GeDialog):
                        name='New scene')
 
     def CoreMessage(self, id, msg):
-        if id == MSG_PUBLISH_DONE:
+        if id == MSG_PREVIZ_THREAD:
             return self.ProcessThreadsMessages()
         return c4d.gui.GeDialog.CoreMessage(self, id, msg)
 
