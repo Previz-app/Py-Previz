@@ -377,6 +377,8 @@ class NewSceneTask(AsyncTask):
 
 
 class PublishSceneTask(AsyncTask):
+    PUBLISH_SCENE = 'publish_scene'
+
     def __init__(self, api_root, api_token, project_uuid, scene_uuid, file_path):
         AsyncTask.__init__(self)
 
@@ -389,7 +391,7 @@ class PublishSceneTask(AsyncTask):
     def doit(self):
         def on_progress(fp, read_size, read_so_far, size):
             if self.TestBreak():
-                log.info('Cancelling upload')
+                log.debug('Cancelling upload: %s' % self.file_path)
                 self.cancel()
 
             progress = int(round(float(read_so_far) / size * 100))
@@ -405,10 +407,12 @@ class PublishSceneTask(AsyncTask):
 
         json_url = scene['jsonUrl']
         with open(self.file_path, 'rb') as fp:
-            log.info('Start upload: %s' % json_url)
+            log.debug('Start upload: %s' % self.file_path)
+            log.debug('Uploading to: %s' % json_url)
             p.update_scene(json_url, fp, on_progress)
-            log.info('End upload: %s' % json_url)
+            log.debug('End upload  : %s' % self.file_path)
 
+        self.send_msg(PublishSceneTask.PUBLISH_SCENE, file_path=self.file_path)
         self.done()
 
 
@@ -700,6 +704,11 @@ class PrevizDialog(c4d.gui.GeDialog):
 
             scene = find_by_key(self.current_scenes, 'uuid', scene['id'])
             self.SetInt32(SCENE_SELECT, scene['id']) # XXX implement selected_scene setter
+
+        if type == PublishSceneTask.PUBLISH_SCENE:
+            file_path = msg['file_path']
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
     def Command(self, id, msg):
         # Refresh the UI so the user has immediate feedback
@@ -1097,7 +1106,7 @@ def build_objects(doc):
         yield parse_mesh(o)
 
 def BuildPrevizScene():
-    log.info('BuildPrevizScene')
+    log.debug('BuildPrevizScene')
 
     doc = c4d.documents.GetActiveDocument()
     doc = doc.Polygonize()
