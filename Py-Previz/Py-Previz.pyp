@@ -236,20 +236,6 @@ def terminate_current_thread():
     t.End(wait=True)
     log.debug('Current thread finished')
 
-
-def unpack_message(msg):
-    # charlesfleche 2017-08-23
-    # This is not documented in the SDK doc, but in the forums:
-    # http://www.plugincafe.com/forum/forum_posts.asp?TID=10538
-    # http://www.plugincafe.com/forum/forum_posts.asp?TID=7564
-    # http://www.plugincafe.com/forum/forum_posts.asp?TID=10712
-    def from_PyCObject(v):
-        ctypes.pythonapi.PyCObject_AsVoidPtr.restype = ctypes.c_void_p
-        ctypes.pythonapi.PyCObject_AsVoidPtr.argtypes = [ctypes.py_object]
-        return ctypes.pythonapi.PyCObject_AsVoidPtr(v)
-
-    return from_PyCObject(msg[c4d.BFM_CORE_PAR1]), from_PyCObject(msg[c4d.BFM_CORE_PAR2])
-
 TASK_DONE          = next(ids)
 TASK_PROGRESS      = next(ids)
 TASK_PROGRESS_SPIN = next(ids)
