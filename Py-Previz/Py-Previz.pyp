@@ -464,13 +464,9 @@ class PrevizDialog(c4d.gui.GeDialog):
 
     @property
     def previz_project(self):
-        api_root = self.settings[SETTINGS_API_ROOT]
-        api_token = self.settings[SETTINGS_API_TOKEN]
-
         project = self.selected_project
         project_uuid = project['uuid'] if project is not None else None
-
-        return previz.PrevizProject(api_root, api_token, project_uuid)
+        return previz.PrevizProject(self.api_root, self.api_token, project_uuid)
 
     @property
     def api_root(self):
@@ -916,8 +912,6 @@ class PrevizDialog(c4d.gui.GeDialog):
         fp.close()
 
         # Upload JSON to Previz in a thread
-        api_root = self.settings[SETTINGS_API_ROOT]
-        api_token = self.settings[SETTINGS_API_TOKEN]
         project_id = self.GetInt32(PROJECT_SELECT)
         scene_id = self.GetInt32(SCENE_SELECT)
 
@@ -925,7 +919,7 @@ class PrevizDialog(c4d.gui.GeDialog):
         scene_uuid = get_uuid_for_id(scene_id)
 
         global publisher_thread
-        publisher_thread = PublisherThread(api_root, api_token, project_uuid, scene_uuid, path)
+        publisher_thread = PublisherThread(self.api_root, self.api_token, project_uuid, scene_uuid, path)
         publisher_thread.Start()
 
         # Notify user of success
