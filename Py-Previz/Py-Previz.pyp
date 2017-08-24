@@ -824,7 +824,8 @@ class PrevizDialog(c4d.gui.GeDialog):
 
         self.set_default_id_if_needed(TEAM_SELECT, self.teams)
 
-        self.Enable(TEAM_SELECT, not is_task_running())
+        print  not is_task_running(), len(self.teams) > 0,  not is_task_running() and len(self.teams) > 0
+        self.Enable(TEAM_SELECT, not is_task_running() and len(self.teams) > 0)
 
         self.LayoutChanged(TEAM_SELECT)
 
@@ -842,6 +843,8 @@ class PrevizDialog(c4d.gui.GeDialog):
 
         self.set_default_id_if_needed(PROJECT_SELECT, self.current_projects)
 
+        self.Enable(PROJECT_SELECT, not is_task_running() and len(self.current_projects) > 0)
+
         self.LayoutChanged(PROJECT_SELECT)
 
         self.RefreshSceneComboBox()
@@ -857,6 +860,8 @@ class PrevizDialog(c4d.gui.GeDialog):
                 touch(id)
 
         self.set_default_id_if_needed(SCENE_SELECT, self.current_scenes)
+
+        self.Enable(SCENE_SELECT, not is_task_running() and len(self.current_scenes) > 0)
 
         self.LayoutChanged(SCENE_SELECT)
 
@@ -935,6 +940,7 @@ class PrevizDialog(c4d.gui.GeDialog):
         webbrowser.open(new_plugin_version['downloadUrl'])
 
     def RefreshUI(self):
+        self.RefreshTeamComboBox()
         self.RefreshProjectNewButton()
         self.RefreshSceneNewButton()
         self.RefreshRefreshButton()
