@@ -236,7 +236,8 @@ def terminate_current_thread():
     t.End(wait=True)
     log.debug('Current thread finished')
 
-
+def is_publishing():
+    return type(get_current_thread()) is PublishSceneTask
 
 
 
@@ -442,6 +443,7 @@ class PublishSceneTask(AsyncTask):
     def doit(self):
         def on_progress(fp, read_size, read_so_far, size):
             if self.TestBreak():
+                log.info('Cancelling upload')
                 self.cancel()
 
             progress = int(round(float(read_so_far) / size * 100))
@@ -621,7 +623,7 @@ class PrevizDialog(c4d.gui.GeDialog):
 
         self.AddButton(id=PUBLISH_BUTTON,
                        flags=c4d.BFH_RIGHT,
-                       name='Publish to Previz')
+                       name='') # defined in RefreshPublishButton
 
         self.GroupEnd()
 
@@ -953,26 +955,27 @@ class PrevizDialog(c4d.gui.GeDialog):
             previz.export(BuildPrevizScene(), fp)
 
     def OnPublishButtonPressed(self, msg):
-        # Write JSON to disk
-        scene = BuildPrevizScene()
+        if is_publishing():
+            terminate_current_thread()
+        else:
+            scene = BuildPrevizScene()
+            fp, path = tempfile.mkstemp(prefix='previz-',
+                                        suffix='.json',
+                                        text=True)
+            fp = os.fdopen(fp, 'w')
+            previz.export(scene, fp)
+            fp.close()
 
-        fp, path = tempfile.mkstemp(prefix='previz-',
-                                    suffix='.json',
-                                    text=True)
-        fp = os.fdopen(fp, 'w')
-        previz.export(scene, fp)
-        fp.close()
-
-        register_and_start_current_thread(
-            PublishSceneTask(
-                self.api_root,
-                self.api_token,
-                self.selected_project['uuid'],
-                self.selected_scene['uuid'],
-                path
-            ),
-            'Publishing to scene %s' % self.selected_scene['title']
-        )
+            register_and_start_current_thread(
+                PublishSceneTask(
+                    self.api_root,
+                    self.api_token,
+                    self.selected_project['uuid'],
+                    self.selected_scene['uuid'],
+                    path
+                ),
+                'Publishing to scene %s' % self.selected_scene['title']
+            )
 
     def OnNewVersionButtonPressed(self, msg):
         webbrowser.open(new_plugin_version['downloadUrl'])
@@ -1009,29 +1012,37 @@ class PrevizDialog(c4d.gui.GeDialog):
         self.Enable(REFRESH_BUTTON, not is_task_running() and is_api_token_valid)
 
     def RefreshPublishButton(self):
-        # Token
-        api_token = self.GetString(API_TOKEN_EDIT)
-        is_api_token_valid = len(api_token) > 0
+        if is_publishing():
+            self.SetString(PUBLISH_BUTTON, 'Cancel publishing')
+            self.Enable(PUBLISH_BUTTON, True)
+        else:
+            self.SetString(PUBLISH_BUTTON, 'Publish to Previz')
 
-        # Team
-        team_id = self.GetInt32(TEAM_SELECT)
-        is_team_id_valid = team_id >= 1
+            # Token
+            api_token = self.GetString(API_TOKEN_EDIT)
+            is_api_token_valid = len(api_token) > 0
 
-        # Project
-        project_id = self.GetInt32(PROJECT_SELECT)
-        is_project_id_valid = project_id >= 1
+            # Team
+            team_id = self.GetInt32(TEAM_SELECT)
+            is_team_id_valid = team_id >= 1
 
-        # Scene
-        scene_id = self.GetInt32(SCENE_SELECT)
-        is_scene_id_valid = scene_id >= 1
+            # Project
+            project_id = self.GetInt32(PROJECT_SELECT)
+            is_project_id_valid = project_id >= 1
 
-        # Enable / Disable
-        self.Enable(PUBLISH_BUTTON,
-                    is_api_token_valid \
-                    and is_team_id_valid \
-                    and is_project_id_valid \
-                    and is_scene_id_valid \
-                    and not is_task_running())
+            # Scene
+            scene_id = self.GetInt32(SCENE_SELECT)
+            is_scene_id_valid = scene_id >= 1
+
+            # Enable / Disable
+            self.Enable(PUBLISH_BUTTON,
+                        is_api_token_valid \
+                        and is_team_id_valid \
+                        and is_project_id_valid \
+                        and is_scene_id_valid \
+                        and not is_task_running())
+
+        self.LayoutChanged(PUBLISH_BUTTON)
 
     def RefreshNewVersionButton(self):
         global new_plugin_version
