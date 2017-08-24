@@ -237,11 +237,17 @@ def terminate_current_thread():
     log.debug('Current thread finished')
 
 
+
+
+
 class AsyncTask(c4d.threading.C4DThread):
     TASK_DONE          = 'task_done'
     TASK_PROGRESS      = 'task_progress'
     TASK_PROGRESS_SPIN = 'task_progress_spin'
     TASK_ERROR         = 'task_error'
+
+    class ThreadCancelException(Exception):
+        pass
 
     def __init__(self):
         c4d.threading.C4DThread.__init__(self)
@@ -258,6 +264,9 @@ class AsyncTask(c4d.threading.C4DThread):
     def error(self):
         self.send_msg(AsyncTask.TASK_ERROR, exc_info=sys.exc_info())
 
+    def cancel(self):
+        raise AsyncTask.ThreadCancelException()
+
     def send_msg(self, type, **kwargs):
         msg = {
             'thread_id': c4d.threading.GeGetCurrentThreadId(),
@@ -270,6 +279,9 @@ class AsyncTask(c4d.threading.C4DThread):
     def Main(self):
         try:
             self.doit()
+        except AsyncTask.ThreadCancelException:
+            log.debug('Thread canceled')
+            self.done()
         except Exception:
             log.error(traceback.format_exc())
             self.error()
@@ -417,6 +429,41 @@ class NewSceneTask(AsyncTask):
         self.done()
 
 
+class PublishSceneTask(AsyncTask):
+    def __init__(self, api_root, api_token, project_uuid, scene_uuid, file_path):
+        AsyncTask.__init__(self)
+
+        self.api_root = api_root
+        self.api_token = api_token
+        self.project_uuid = project_uuid
+        self.scene_uuid = scene_uuid
+        self.file_path = file_path
+
+    def doit(self):
+        def on_progress(fp, read_size, read_so_far, size):
+            if self.TestBreak():
+                self.cancel()
+
+            progress = int(round(float(read_so_far) / size * 100))
+            self.progress(progress)
+
+
+        p = previz.PrevizProject(self.api_root,
+                                 self.api_token,
+                                 self.project_uuid)
+        scene = p.scene(self.scene_uuid, include=[])
+
+        self.progress()
+
+        json_url = scene['jsonUrl']
+        with open(self.file_path, 'rb') as fp:
+            log.info('Start upload: %s' % json_url)
+            p.update_scene(json_url, fp, on_progress)
+            log.info('End upload: %s' % json_url)
+
+        self.done()
+
+
 class PrevizDialog(c4d.gui.GeDialog):
     def __init__(self):
         self.settings = Settings(__plugin_title__)
@@ -503,7 +550,7 @@ class PrevizDialog(c4d.gui.GeDialog):
 
     @property
     def selected_scene(self):
-        find_by_key(self.current_scenes, 'id', self.GetInt32(SCENE_SELECT))
+        return find_by_key(self.current_scenes, 'id', self.GetInt32(SCENE_SELECT))
 
     def InitValues(self):
         self.SetString(API_ROOT_EDIT, self.settings[SETTINGS_API_ROOT])
@@ -823,10 +870,7 @@ class PrevizDialog(c4d.gui.GeDialog):
                 touch(id)
 
         self.set_default_id_if_needed(TEAM_SELECT, self.teams)
-
-        print  not is_task_running(), len(self.teams) > 0,  not is_task_running() and len(self.teams) > 0
         self.Enable(TEAM_SELECT, not is_task_running() and len(self.teams) > 0)
-
         self.LayoutChanged(TEAM_SELECT)
 
         self.RefreshProjectComboBox()
@@ -842,9 +886,7 @@ class PrevizDialog(c4d.gui.GeDialog):
                 touch(id)
 
         self.set_default_id_if_needed(PROJECT_SELECT, self.current_projects)
-
         self.Enable(PROJECT_SELECT, not is_task_running() and len(self.current_projects) > 0)
-
         self.LayoutChanged(PROJECT_SELECT)
 
         self.RefreshSceneComboBox()
@@ -860,9 +902,7 @@ class PrevizDialog(c4d.gui.GeDialog):
                 touch(id)
 
         self.set_default_id_if_needed(SCENE_SELECT, self.current_scenes)
-
         self.Enable(SCENE_SELECT, not is_task_running() and len(self.current_scenes) > 0)
-
         self.LayoutChanged(SCENE_SELECT)
 
     def OnProjectNewButtonPressed(self, msg):
@@ -923,18 +963,16 @@ class PrevizDialog(c4d.gui.GeDialog):
         previz.export(scene, fp)
         fp.close()
 
-        # Upload JSON to Previz in a thread
-        project_id = self.GetInt32(PROJECT_SELECT)
-        scene_id = self.GetInt32(SCENE_SELECT)
-
-        project_uuid = get_uuid_for_id(project_id)
-        scene_uuid = get_uuid_for_id(scene_id)
-
-        global publisher_thread
-        publisher_thread = PublisherThread(self.api_root, self.api_token, project_uuid, scene_uuid, path)
-        publisher_thread.Start()
-
-        # Notify user of success
+        register_and_start_current_thread(
+            PublishSceneTask(
+                self.api_root,
+                self.api_token,
+                self.selected_project['uuid'],
+                self.selected_scene['uuid'],
+                path
+            ),
+            'Publishing to scene %s' % self.selected_scene['title']
+        )
 
     def OnNewVersionButtonPressed(self, msg):
         webbrowser.open(new_plugin_version['downloadUrl'])
@@ -987,16 +1025,12 @@ class PrevizDialog(c4d.gui.GeDialog):
         scene_id = self.GetInt32(SCENE_SELECT)
         is_scene_id_valid = scene_id >= 1
 
-        # Publisher is running
-        is_publisher_thread_running = publisher_thread is not None and publisher_thread.IsRunning()
-
         # Enable / Disable
         self.Enable(PUBLISH_BUTTON,
                     is_api_token_valid \
                     and is_team_id_valid \
                     and is_project_id_valid \
                     and is_scene_id_valid \
-                    and not is_publisher_thread_running \
                     and not is_task_running())
 
     def RefreshNewVersionButton(self):
@@ -1169,31 +1203,6 @@ def BuildPrevizScene():
                         os.path.basename(doc.GetDocumentPath()),
                         None,
                         build_objects(doc))
-
-
-class PublisherThread(c4d.threading.C4DThread):
-    def __init__(self, api_root, api_token, project_uuid, scene_uuid, path):
-        self.api_root = api_root
-        self.api_token = api_token
-        self.project_uuid = project_uuid
-        self.scene_uuid = scene_uuid
-        self.path = path
-
-    def Main(self):
-        p = previz.PrevizProject(self.api_root,
-                                 self.api_token,
-                                 self.project_uuid)
-        scene = p.scene(self.scene_uuid, include=[])
-        json_url = scene['jsonUrl']
-        with open(self.path, 'rb') as fp:
-            log.info('Start upload: %s' % json_url)
-            p.update_scene(json_url, fp)
-            log.info('End upload: %s' % json_url)
-        c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
-
-
-publisher_thread = None
-
 
 
 log = None
