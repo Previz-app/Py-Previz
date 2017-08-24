@@ -3,6 +3,7 @@ import ctypes
 import logging
 import os
 import os.path
+import Queue
 import shelve
 import sys
 import tempfile
@@ -12,7 +13,6 @@ import urlparse
 import webbrowser
 
 import c4d
-from c4d import threading
 
 # Add locale module path
 local_modules_path = os.path.join(os.path.dirname(__file__),
@@ -200,6 +200,7 @@ import time
 
 
 current_thread = None
+current_thread_queue_to_main = Queue.Queue()
 
 def get_current_thread():
     global current_thread
@@ -261,6 +262,27 @@ class TestThread(c4d.threading.C4DThread):
         self.success_timeout = success_timeout
         self.raise_timeout = raise_timeout
 
+    def done(self):
+        self.send_msg(TASK_DONE)
+
+    def progress(self, value = None):
+        if value is None:
+            self.send_msg(TASK_PROGRESS_SPIN)
+        else:
+            self.send_msg(TASK_PROGRESS, progress=value)
+
+    def error(self):
+        self.send_msg(TASK_ERROR, exc_info=sys.exc_info())
+
+    def send_msg(self, type, **kwargs):
+        msg = {
+            'thread_id': c4d.threading.GeGetCurrentThreadId(),
+            'type': type
+        }
+        msg.update(kwargs)
+        current_thread_queue_to_main.put(msg)
+        c4d.SpecialEventAdd(MSG_PUBLISH_DONE)
+
     def Main(self):
         try:
             def progress(max, cur):
@@ -285,7 +307,7 @@ class TestThread(c4d.threading.C4DThread):
 
                 if self.TestBreak():
                     log.info('TestThread.Main: Break')
-                    c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
+                    self.done()
                     return
 
                 if self.raise_timeout is not None and dt > self.raise_timeout:
@@ -295,16 +317,16 @@ class TestThread(c4d.threading.C4DThread):
                 if self.success_timeout is not None:
                     if dt > self.success_timeout:
                         log.info('TestThread.Main: Success')
-                        c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_DONE)
+                        self.done()
                         return
 
                     p = progress(self.success_timeout, dt)
-                    c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_PROGRESS, p)
+                    self.progress(p)
                 else:
-                    c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_PROGRESS_SPIN)
+                    self.progress()
         except Exception:
             log.error(traceback.format_exc())
-            c4d.SpecialEventAdd(MSG_PUBLISH_DONE, TASK_ERROR)
+            self.error()
 
 
 class PrevizDialog(c4d.gui.GeDialog):
@@ -558,27 +580,37 @@ class PrevizDialog(c4d.gui.GeDialog):
 
     def CoreMessage(self, id, msg):
         if id == MSG_PUBLISH_DONE:
-            type, value = unpack_message(msg)
-
-            if type == TASK_DONE:
-                unregister_current_thread()
-                self.RefreshUI()
-                return True
-
-            if type == TASK_ERROR:
-                unregister_current_thread()
-                c4d.gui.MessageDialog(ERROR_MESSAGE, type=c4d.GEMB_OK)
-                c4d.CallCommand(12305, 12305) # Show script console
-
-            if type == TASK_PROGRESS:
-                log.debug('TASK_PROGRESS: %s' % value)
-                c4d.StatusSetBar(value)
-
-            if type == TASK_PROGRESS_SPIN:
-                log.debug('TASK_PROGRESS_SPIN')
-                c4d.StatusSetSpin()
-
+            return self.ProcessThreadsMessages()
         return c4d.gui.GeDialog.CoreMessage(self, id, msg)
+
+    def ProcessThreadsMessages(self):
+        while not current_thread_queue_to_main.empty():
+            msg = current_thread_queue_to_main.get()
+            log.debug(msg)
+            self.CustomThreadMessage(msg)
+            current_thread_queue_to_main.task_done()
+        return True
+
+    def CustomThreadMessage(self, msg):
+        type = msg['type']
+
+        if type == TASK_DONE:
+            unregister_current_thread()
+            self.RefreshUI()
+
+        if type == TASK_ERROR:
+            unregister_current_thread()
+            c4d.gui.MessageDialog(ERROR_MESSAGE, type=c4d.GEMB_OK)
+            c4d.CallCommand(12305, 12305) # Show script console
+
+        if type == TASK_PROGRESS:
+            value = msg['progress']
+            log.debug('TASK_PROGRESS: %s' % value)
+            c4d.StatusSetBar(value)
+
+        if type == TASK_PROGRESS_SPIN:
+            log.debug('TASK_PROGRESS_SPIN')
+            c4d.StatusSetSpin()
 
     def Command(self, id, msg):
         # Refresh the UI so the user has immediate feedback
