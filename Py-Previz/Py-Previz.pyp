@@ -85,7 +85,7 @@ debug_canary_path = os.path.join(os.path.dirname(__file__), 'c4d_debug.txt')
 
 debug = os.path.exists(debug_canary_path)
 
-teams = {}
+teams = []
 new_plugin_version = None
 
 def key(x):
@@ -477,14 +477,19 @@ class PrevizDialog(c4d.gui.GeDialog):
         return self.settings[SETTINGS_API_TOKEN]
 
     @property
-    def selected_team(self):
+    def teams(self):
         global teams
-        return find_by_key(teams, 'id', self.GetInt32(TEAM_SELECT))
+        return sorted(teams, key=key)
+
+    @property
+    def selected_team(self):
+        return find_by_key(self.teams, 'id', self.GetInt32(TEAM_SELECT))
 
     @property
     def current_projects(self):
         team = self.selected_team
-        return [] if team is None else team['projects']
+        projects = [] if team is None else team['projects']
+        return sorted(projects, key=key)
 
     @property
     def selected_project(self):
@@ -493,7 +498,8 @@ class PrevizDialog(c4d.gui.GeDialog):
     @property
     def current_scenes(self):
         project = self.selected_project
-        return [] if project is None else project['scenes']
+        scenes = [] if project is None else project['scenes']
+        return sorted(scenes, key=key)
 
     @property
     def selected_scene(self):
@@ -810,14 +816,15 @@ class PrevizDialog(c4d.gui.GeDialog):
         with Restore(self.GetInt32, self.SetInt32, TEAM_SELECT) as touch:
             self.FreeChildren(TEAM_SELECT)
 
-            global teams
-            for team in sorted(teams, key=key):
+            for team in self.teams:
                 id   = team['id']
                 name = team['title']
                 self.AddChild(TEAM_SELECT, id, name)
                 touch(id)
 
-        self.set_default_id_if_needed(TEAM_SELECT, sorted(teams, key=key))
+        self.set_default_id_if_needed(TEAM_SELECT, self.teams)
+
+        self.Enable(TEAM_SELECT, not is_task_running())
 
         self.LayoutChanged(TEAM_SELECT)
 
@@ -833,7 +840,7 @@ class PrevizDialog(c4d.gui.GeDialog):
                 self.AddChild(PROJECT_SELECT, id, title)
                 touch(id)
 
-        self.set_default_id_if_needed(PROJECT_SELECT, sorted(self.current_projects, key=key))
+        self.set_default_id_if_needed(PROJECT_SELECT, self.current_projects)
 
         self.LayoutChanged(PROJECT_SELECT)
 
@@ -849,7 +856,7 @@ class PrevizDialog(c4d.gui.GeDialog):
                 self.AddChild(SCENE_SELECT, id, name)
                 touch(id)
 
-        self.set_default_id_if_needed(SCENE_SELECT, sorted(self.current_scenes, key=key))
+        self.set_default_id_if_needed(SCENE_SELECT, self.current_scenes)
 
         self.LayoutChanged(SCENE_SELECT)
 
