@@ -480,7 +480,9 @@ class PrevizDialog(c4d.gui.GeDialog):
 
     def InitValues(self):
         self.SetString(API_ROOT_EDIT, self.settings[SETTINGS_API_ROOT])
-        self.SetString(API_TOKEN_EDIT, self.settings[SETTINGS_API_TOKEN])
+        self.SetString(API_TOKEN_EDIT,
+                       self.settings[SETTINGS_API_TOKEN],
+                       flags=c4d.EDITTEXT_PASSWORD)
 
         self.RefreshUI()
 
@@ -585,7 +587,8 @@ class PrevizDialog(c4d.gui.GeDialog):
                            name='API token')
 
         self.AddEditText(id=API_TOKEN_EDIT,
-                         flags=c4d.BFH_SCALEFIT)
+                         flags=c4d.BFH_SCALEFIT,
+                         editflags=c4d.EDITTEXT_PASSWORD)
 
         self.AddButton(id=API_TOKEN_BUTTON,
                        flags=c4d.BFH_FIT,
