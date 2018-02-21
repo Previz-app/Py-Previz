@@ -28,6 +28,10 @@ $ source env/bin/activate
 ``` sh
 python setup.py rsync_cinema4d_plugin --destination=JohnDoe-MacBook-Pro.local:/Users/john/Library/Preferences/MAXON/CINEMA4D/plugins
 ```
+* There is currently no command on Windows at the moment to install the plugin into the plugin folder. Use `xcopy`:
+``` sh
+xcopy build\lib\Py-Previz "C:\Users\john\AppData\Roaming\MAXON\CINEMA 4D R17_8DE13DAD\plugins\Py-Previz" /E
+```
 
 
 Release
