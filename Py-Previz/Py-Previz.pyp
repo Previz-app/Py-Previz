@@ -1,18 +1,16 @@
+import c4d
 import contextlib
-import ctypes
 import logging
 import os
 import os.path
+import platform
 import Queue
 import shelve
 import sys
 import tempfile
-import time
 import traceback
 import urlparse
 import webbrowser
-
-import c4d
 
 # Add locale module path
 local_modules_path = os.path.join(os.path.dirname(__file__),
@@ -329,6 +327,15 @@ class NewProjectTask(AsyncTask):
 
     def doit(self):
         p = previz.PrevizProject(self.api_root, self.api_token)
+
+        p.custom_headers = {
+            'X-PREVIZ-PLUGIN-NAME': 'Py-Previz',
+            'X-PREVIZ-PLUGIN-VERSION': __version__,
+            'X-PREVIZ-PLATFORM-NAME': 'Cinema 4D',
+            'X-PREVIZ-PLATFORM-VERSION': c4d.GetC4DVersion(),
+            'X-PREVIZ-OS-NAME': platform.system(),
+            'X-PREVIZ-OS-VERSION': platform.release(),
+        }
 
         new_project = p.new_project(self.name, self.team_id)
 
