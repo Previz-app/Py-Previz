@@ -330,11 +330,11 @@ class NewProjectTask(AsyncTask):
 
         p.custom_headers = {
             'X-PREVIZ-PLUGIN-NAME': 'Py-Previz',
-            'X-PREVIZ-PLUGIN-VERSION': __version__,
+            'X-PREVIZ-PLUGIN-VERSION': str(__version__),
             'X-PREVIZ-PLATFORM-NAME': 'Cinema 4D',
-            'X-PREVIZ-PLATFORM-VERSION': c4d.GetC4DVersion(),
-            'X-PREVIZ-OS-NAME': platform.system(),
-            'X-PREVIZ-OS-VERSION': platform.release(),
+            'X-PREVIZ-PLATFORM-VERSION': str(c4d.GetC4DVersion()),
+            'X-PREVIZ-OS-NAME': str(platform.system()),
+            'X-PREVIZ-OS-VERSION': str(platform.release()),
         }
 
         new_project = p.new_project(self.name, self.team_id)
